@@ -1,0 +1,68 @@
+#pragma once
+
+#include "defines.h"
+#include <pch.h>
+
+#include <runtime/timer.h>
+
+namespace async::runtime {
+class timer_thread {
+  private:
+    struct timer_block {
+        timer t;
+        cid_t id;
+    };
+
+  public:
+    timer_thread(duration_t resolution = duration_t(1));
+
+    bool work();
+
+    cid_t add_timer(duration_t duration, bool rolling, void_func on_timeout) {
+        const auto id = _id.get();
+
+        auto new_timer = timer(duration, rolling);
+        new_timer.on_timeout(std::move(on_timeout));
+        new_timer.start();
+
+        std::lock_guard lck(_timers_m);
+        _timers.emplace_back(std::move(new_timer), id);
+        std::cout << "\tADDED TIMER " << id << "\n";
+
+        return id;
+    }
+
+    void remove_timer(cid_t id) {
+        std::lock_guard lck(_timers_m);
+
+        auto erased =
+            std::erase_if(_timers, [id](auto &tim) { return tim.id == id; });
+
+        if (erased >= 1) {
+            std::cout << "\tREMOVED TIMER " << id << "\n";
+            _id.drop(id);
+        }
+    }
+
+    // TODO:
+    [[nodiscard]] bool saturated() { return false; }
+
+    void cleanup() {
+        {
+            std::lock_guard lck(_timers_m);
+
+            _timers.clear();
+        }
+        _id.reset();
+    }
+
+  private:
+    std::chrono::milliseconds _resolution;
+
+    std::mutex _timers_m;
+    std::list<timer_block> _timers;
+    id_gen<cid_t> _id;
+};
+
+using p_timer_thread = std::unique_ptr<timer_thread>;
+} // namespace async::runtime
