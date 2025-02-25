@@ -35,6 +35,10 @@ class timer_thread {
     void remove_timer(cid_t id) {
         std::lock_guard lck(_timers_m);
 
+        // to avoid look up, hold a bitset of all enabled timers on this thread
+        // even if you do a look up do it on a sorted list, with binary search
+        // deletion should be log N in case of sorted list
+
         auto erased =
             std::erase_if(_timers, [id](auto &tim) { return tim.id == id; });
 
@@ -60,6 +64,7 @@ class timer_thread {
     std::chrono::milliseconds _resolution;
 
     std::mutex _timers_m;
+    // TODO: this needs to be a sorted list
     std::list<timer_block> _timers;
     id_gen<cid_t> _id;
 };

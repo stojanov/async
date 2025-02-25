@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.28)
 
-set(VCPKG_OVERLAY_TRIPLETS "triplets")
-set(VCPKG_TARGET_TRIPLET "x64-linux")
+# set(VCPKG_OVERLAY_TRIPLETS "triplets") set(VCPKG_TARGET_TRIPLET "x64-linux")
 
 project(async)
 
@@ -9,7 +8,6 @@ include($ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
 file(GLOB_RECURSE ASYNC_SOURCES src/*.cpp)
 file(GLOB_RECURSE ASYNC_HEADERS src/*.h)
 

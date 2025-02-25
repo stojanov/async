@@ -1,5 +1,6 @@
 #pragma once
 
+#include "runtime/runtime.h"
 #include <pch.h>
 
 namespace async {
@@ -11,7 +12,7 @@ struct poll_awaitable {
     bool await_ready() { return false; }
 
     void await_suspend(std::coroutine_handle<> h) {
-        /*runtime::get().submit_resume(h, _prio);*/
+        runtime::get().submit([h]() { h.resume(); });
     }
 
     void await_resume() {}

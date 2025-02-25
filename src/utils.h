@@ -46,6 +46,8 @@ template <std::integral T> class id_gen {
     std::atomic<T> _counter{0};
 };
 
+template <std::integral T> class id_cont {};
+
 static inline cid_t combine_u16(u16 a, u16 b) {
     return (a << (sizeof(u16) * 8)) | b;
 }

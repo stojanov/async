@@ -39,4 +39,7 @@ class runtime {
     runtime_core _core;
     timer_thread_handler _timer_th_handler;
 };
+
+static inline auto &get() { return runtime::get(); }
+
 } // namespace async::runtime

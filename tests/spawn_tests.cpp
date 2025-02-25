@@ -1,5 +1,5 @@
 #include "runtime/coroutine.h"
-#include <channel_test.h>
+#include <channel.h>
 #include <chrono>
 #include <deque>
 #include <gtest/gtest.h>
@@ -12,7 +12,7 @@
 #include <thread>
 #include <unistd.h>
 
-#include <select_test.h>
+#include <select.h>
 #include <variant>
 
 using namespace testing;
@@ -115,7 +115,7 @@ TEST_F(SpawnTests, ChannelTests) {
     std::shared_ptr<async::channel<char>> chan2 =
         std::make_shared<async::channel<char>>();
 
-    async::co_select_test<int, std::string, char> sl{{chan, chan2, chan1}};
+    async::co_select sl{chan, chan1, chan2};
 
     std::mutex m;
     std::deque<decltype(sl)::variant_type> queue;

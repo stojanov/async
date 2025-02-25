@@ -14,7 +14,7 @@ class timer_thread_handler {
         timer_thread *th = nullptr;
         cid_t th_id = 0;
 
-        if (auto *th_block = find_first_timer()) {
+        if (auto *th_block = find_first_timer_thread()) {
             th = &std::get<timer_thread>(*th_block->thread_work);
             th_id = th_block->id;
         } else {
@@ -32,7 +32,7 @@ class timer_thread_handler {
     void remove_timer(cid_t id);
 
   private:
-    inline runtime_core::thread_block *find_first_timer() {
+    inline runtime_core::thread_block *find_first_timer_thread() {
         auto tim = std::ranges::find_if(_core._threads, [](auto &block) {
             return std::holds_alternative<timer_thread>(*block.thread_work);
         });
@@ -40,7 +40,7 @@ class timer_thread_handler {
         return tim == std::end(_core._threads) ? nullptr : &(*tim);
     }
 
-    inline runtime_core::thread_block *find_timer(cid_t id) {
+    inline runtime_core::thread_block *find_timer_thread(cid_t id) {
         auto tim = std::ranges::find_if(
             _core._threads, [id](auto &block) { return block.id == id; });
 

@@ -6,7 +6,7 @@ namespace async::runtime {
 runtime_core::runtime_core() : _visitor(*this) {}
 
 void runtime_core::spawn(std::size_t N) {
-    assert(N > 2);
+    assert(N >= 2);
 
     const auto id = _id.get();
     worker_thread default_worker_thread = worker_thread(*this);

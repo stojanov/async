@@ -12,7 +12,6 @@ struct sleep_awaitable {
 
     void await_suspend(std::coroutine_handle<> h) {
         _id = runtime::runtime::get().attach_timer(_duration, false, [h]() {
-            std::cout << "------------TIMER TIMEDOUT\n";
             runtime::runtime::get().submit([h]() {
                 auto _h = h;
                 _h.resume();
