@@ -1,10 +1,7 @@
 #pragma once
 
-#include <coroutine>
-#include <memory>
-#include <optional>
-#include <pch.h>
-#include <runtime/runtime.h>
+#include <async/pch.h>
+#include <async/runtime/runtime.h>
 
 namespace async {
 
@@ -97,7 +94,7 @@ template <typename T> struct channel_core {
 
         first.awaitable->_value = value;
 
-        runtime::runtime::get().submit([first]() { first.handle.resume(); }, 1);
+        runtime::runtime::get().submit_resume(first.handle);
     }
 
     chan_awaitable fetch() { return {*this}; }

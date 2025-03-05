@@ -1,18 +1,18 @@
-#include "runtime/coroutine.h"
-#include <channel.h>
+#include <async/channel.h>
+#include <async/runtime/coroutine.h>
+#include <async/runtime/runtime.h>
+#include <async/sleep.h>
 #include <chrono>
 #include <deque>
 #include <gtest/gtest.h>
-#include <runtime/runtime.h>
-/*#include <signal.h>*/
-#include <sleep.h>
 
+#include <async/poll.h>
 #include <iostream>
 #include <string>
 #include <thread>
 #include <unistd.h>
 
-#include <select.h>
+#include <async/select.h>
 #include <variant>
 
 using namespace testing;
@@ -119,11 +119,13 @@ TEST_F(SpawnTests, ChannelTests) {
 
     std::mutex m;
     std::deque<decltype(sl)::variant_type> queue;
+    std::atomic_bool running = true;
 
-    rtime().submit([&sl, &m, &queue]() -> async::runtime::coroutine {
+    rtime().submit([&sl, &m, &queue, &running]() -> async::runtime::coroutine {
         auto &select = sl;
         auto &mu = m;
         auto &q = queue;
+        auto &r = running;
 
         overloads visitor{[&mu, &q](int i) {
                               std::lock_guard lck(mu);
@@ -149,7 +151,8 @@ TEST_F(SpawnTests, ChannelTests) {
                               std::cout << "GOT FLOAT " << i << "\n";
                           }};
 
-        while (1) {
+        spdlog::error("STARTED COLLECTING FROM SELECT BEFORE POLL");
+        while (co_await async::poll()) {
             std::cout << "-------STARTED WAITING--------" << "\n";
             auto v = co_await select.fetch();
 
@@ -161,74 +164,84 @@ TEST_F(SpawnTests, ChannelTests) {
         }
     });
 
-    rtime().submit([&chan, &m, &queue]() -> async::runtime::coroutine {
-        auto &chan_ref = chan;
-        auto &mu = m;
-        auto &q = queue;
+    rtime().submit(
+        [&chan, &m, &queue, &running]() -> async::runtime::coroutine {
+            auto &chan_ref = chan;
+            auto &mu = m;
+            auto &q = queue;
+            auto &r = running;
 
-        int i = 0;
-        while (1) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            int i = 0;
+            spdlog::error("STARTED PUSHING INT FROM SELECT BEFORE POLL");
+            while (co_await async::poll()) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-            std::cout << "-------- PUSHING INT " << i << "\n";
-            chan_ref->push(i);
-            {
-                std::lock_guard lck(mu);
-                q.push_back(i);
+                std::cout << "-------- PUSHING INT " << i << "\n";
+                chan_ref->push(i);
+                {
+                    std::lock_guard lck(mu);
+                    q.push_back(i);
+                }
+                i++;
             }
-            i++;
-        }
-    });
+        });
 
-    rtime().submit([&chan1, &m, &queue]() -> async::runtime::coroutine {
-        auto &chan_ref = chan1;
-        auto &mu = m;
-        auto &q = queue;
+    rtime().submit(
+        [&chan1, &m, &queue, &running]() -> async::runtime::coroutine {
+            auto &chan_ref = chan1;
+            auto &mu = m;
+            auto &q = queue;
+            auto &r = running;
 
-        std::string str = "CHAN SEND ";
-        int i = 0;
-        while (1) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            std::string str = "CHAN SEND ";
+            int i = 0;
+            spdlog::error("STARTED PUSHING \tSTRING FROM SELECT BEFORE POLL");
+            while (co_await async::poll()) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
-            auto tosend = str + std::to_string(i++);
-            std::cout << "-------- PUSHING STRING\n";
+                auto tosend = str + std::to_string(i++);
+                std::cout << "-------- PUSHING STRING\n";
 
-            chan_ref->push(tosend);
+                chan_ref->push(tosend);
 
-            {
+                {
 
-                std::lock_guard lck(mu);
-                q.push_back(tosend);
+                    std::lock_guard lck(mu);
+                    q.push_back(tosend);
+                }
+
+                // TODO: add sleep
             }
+        });
 
-            // TODO: add sleep
-        }
-    });
+    rtime().submit(
+        [&chan2, &queue, &m, &running]() -> async::runtime::coroutine {
+            auto &chan_ref = chan2;
+            auto &mu = m;
+            auto &q = queue;
+            auto &r = running;
 
-    rtime().submit([&chan2, &queue, &m]() -> async::runtime::coroutine {
-        auto &chan_ref = chan2;
-        auto &mu = m;
-        auto &q = queue;
+            char c = 'a';
+            spdlog::error("STARTED PUSHING \tCHAR FROM SELECT BEFORE POLL");
+            while (co_await async::poll()) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1500));
 
-        char c = 'a';
-        while (1) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+                std::cout << "-------- PUSHING CHAR " << c << "\n";
 
-            std::cout << "-------- PUSHING CHAR " << c << "\n";
+                chan_ref->push(c);
 
-            chan_ref->push(c);
+                {
+                    std::lock_guard lck(mu);
+                    q.push_back(c);
+                }
 
-            {
-                std::lock_guard lck(mu);
-                q.push_back(c);
+                c++;
+                // TODO: add sleep
             }
+        });
 
-            c++;
-            // TODO: add sleep
-        }
-    });
+    std::this_thread::sleep_for(std::chrono::seconds(200));
 
-    while (1) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
+    /*running = false;*/
+    rtime().shutdown();
 }

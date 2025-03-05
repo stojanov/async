@@ -1,6 +1,7 @@
-#include "runtime/timer_thread.h"
-#include <runtime/runtime_core.h>
-#include <runtime/worker_thread.h>
+#include <async/runtime/runtime_core.h>
+#include <async/runtime/timer_thread.h>
+#include <async/runtime/worker_thread.h>
+#include <coroutine>
 
 namespace async::runtime {
 runtime_core::runtime_core() : _visitor(*this) {}
@@ -27,7 +28,13 @@ void runtime_core::spawn(std::size_t N) {
     _capacity.fetch_add(N);
 }
 
-void runtime_core::submit(task_func &&func) { _runqueue.push_pending({func}); }
+void runtime_core::submit(task_func &&func) {
+    _runqueue.push_pending_raw_task({func});
+}
+
+void runtime_core::submit_resume(std::coroutine_handle<> h) {
+    _runqueue.push_pending_resume(h);
+};
 
 void runtime_core::worker(thread_var_t *work) {
     {
@@ -41,6 +48,7 @@ void runtime_core::worker(thread_var_t *work) {
 
 void runtime_core::shutdown() {
     _running = false;
+
     _runqueue.shutdown();
 
     const auto visitor =
@@ -49,6 +57,9 @@ void runtime_core::shutdown() {
 
     std::ranges::for_each(_threads, [&visitor](thread_block &block) {
         std::visit(visitor, *block.thread_work);
+        // TODO: think about this, some that will actually release won't have
+        // data inside needs to be covered by all the util/concurrent blocks
+        /*block.active.resume();*/
         block.thread->join();
     });
 

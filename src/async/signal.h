@@ -1,7 +1,7 @@
 #pragma once
 
-#include "pch.h"
-#include <runtime/runtime.h>
+#include <async/pch.h>
+#include <async/runtime/runtime.h>
 
 namespace async {
 
@@ -54,8 +54,7 @@ struct signal : private detail::signal_core {
 
             if (block.predicate()) {
                 it = _waiting.erase(it);
-                runtime::runtime::get().submit(
-                    [block] { block.handle.resume(); }, 1);
+                runtime::runtime::get().submit_resume(block.handle;
             } else {
                 it++;
             }

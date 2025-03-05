@@ -1,6 +1,6 @@
 
-#include <pch.h>
-#include <runtime/runtime.h>
+#include <async/pch.h>
+#include <async/runtime/runtime.h>
 
 namespace async {
 
@@ -12,10 +12,7 @@ struct sleep_awaitable {
 
     void await_suspend(std::coroutine_handle<> h) {
         _id = runtime::runtime::get().attach_timer(_duration, false, [h]() {
-            runtime::runtime::get().submit([h]() {
-                auto _h = h;
-                _h.resume();
-            });
+            runtime::runtime::get().submit_resume(h);
         });
     }
 

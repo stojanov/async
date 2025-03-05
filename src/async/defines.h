@@ -1,7 +1,9 @@
 #pragma once
 
 #include <chrono>
+#include <coroutine>
 #include <cstdint>
+#include <functional>
 #include <memory>
 
 namespace async {
@@ -31,4 +33,6 @@ template <typename T> using s_ptr = std::shared_ptr<T>;
 template <typename T> using u_ptr = std::unique_ptr<T>;
 
 using duration_t = std::chrono::milliseconds;
+
+using coro_handle = std::coroutine_handle<>;
 } // namespace async

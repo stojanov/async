@@ -1,7 +1,9 @@
 #pragma once
 
-#include "runtime/runtime.h"
-#include <pch.h>
+#include <async/pch.h>
+#include <async/runtime/runtime.h>
+
+#include <spdlog/spdlog.h>
 
 namespace async {
 namespace detail {
@@ -12,16 +14,16 @@ struct poll_awaitable {
     bool await_ready() { return false; }
 
     void await_suspend(std::coroutine_handle<> h) {
-        runtime::get().submit([h]() { h.resume(); });
+        runtime::get().submit_resume(h);
     }
 
-    void await_resume() {}
+    bool await_resume() { return true; }
 
     int _prio;
 };
 
 } // namespace detail
 
-inline static auto poll(int prio) { return detail::poll_awaitable{prio}; }
+inline static auto poll(int prio = 0) { return detail::poll_awaitable{prio}; }
 
 } // namespace async

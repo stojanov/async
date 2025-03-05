@@ -1,11 +1,12 @@
 #pragma once
 
-#include <pch.h>
-#include <runtime/coroutine.h>
+#include <async/pch.h>
+#include <async/runtime/coroutine.h>
 
-#include <runtime/runqueue.h>
-#include <runtime/timer_thread.h>
-#include <runtime/worker_thread.h>
+#include <async/runtime/runqueue.h>
+#include <async/runtime/timer_thread.h>
+#include <async/runtime/worker_thread.h>
+#include <coroutine>
 
 namespace async::runtime {
 struct runtime_core {
@@ -17,6 +18,7 @@ struct runtime_core {
         cid_t id;
         u_ptr<thread_var_t> thread_work;
         u_ptr<std::thread> thread;
+        std::coroutine_handle<> active;
     };
 
     struct thread_visitor {
@@ -71,6 +73,7 @@ struct runtime_core {
 
     // provide raw, and coroutine spawns
     void submit(task_func &&func);
+    void submit_resume(std::coroutine_handle<> h);
 
     void spawn_new();
     void shutdown();

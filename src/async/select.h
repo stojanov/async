@@ -1,16 +1,11 @@
-
 #pragma once
 
-#include <algorithm>
-#include <channel.h>
-#include <coroutine>
-#include <deque>
-#include <memory>
-#include <mutex>
-#include <optional>
-#include <pch.h>
-#include <runtime/runtime_core.h>
-#include <sys/wait.h>
+#include "async/runtime/runtime.h"
+#include <async/channel.h>
+#include <async/pch.h>
+#include <async/runtime/runtime_core.h>
+
+#include <iostream>
 
 namespace async {
 
@@ -136,7 +131,7 @@ template <typename... Args> struct select_core {
         }
 
         if (h) {
-            runtime::runtime::get().submit([h] { h.resume(); }, 1);
+            runtime::runtime::get().submit_resume(h);
         }
     }
 
@@ -166,7 +161,7 @@ template <typename... Args> struct select_core {
                 return;
             }
 
-            runtime::runtime::get().submit([block] { block.h.resume(); });
+            runtime::runtime::get().submit_resume(block.h);
         });
     };
 

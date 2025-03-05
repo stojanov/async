@@ -1,10 +1,10 @@
 #pragma once
 
-#include "defines.h"
-#include <pch.h>
-#include <runtime/coroutine.h>
-#include <runtime/runtime_core.h>
-#include <runtime/timer_thread_handler.h>
+#include <async/pch.h>
+#include <async/runtime/coroutine.h>
+#include <async/runtime/defines.h>
+#include <async/runtime/runtime_core.h>
+#include <async/runtime/timer_thread_handler.h>
 
 namespace async::runtime {
 
@@ -18,6 +18,7 @@ class runtime {
     };
 
     void submit(task_func &&task, int prio = 1);
+    void submit_resume(coro_handle h);
 
     template <typename T>
     void submit_t(Closure<T> closure, closure_task_func<T> &&task,
