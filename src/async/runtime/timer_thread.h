@@ -5,6 +5,8 @@
 
 #include <async/runtime/timer.h>
 
+#include <iostream>
+
 namespace async::runtime {
 class timer_thread {
   private:

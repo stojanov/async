@@ -10,11 +10,10 @@ runtime &runtime::get() {
 }
 
 void runtime::submit(task_func &&func, int prio) {
-    /*std::cout << "SUBMITTING\n";*/
     _core.submit(std::move(func));
 }
 
-void runtime::submit_resume(coro_handle h) {}
+void runtime::submit_resume(coro_handle h) { _core.submit_resume(h); }
 
 void runtime::shutdown() { _core.shutdown(); }
 } // namespace async::runtime

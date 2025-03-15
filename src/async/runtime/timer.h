@@ -1,5 +1,6 @@
 #pragma once
 
+#include "async/defines.h"
 #include <async/pch.h>
 
 namespace async::runtime {
@@ -11,9 +12,7 @@ class timer {
     using resolution = std::chrono::milliseconds;
 
   public:
-    timer(std::chrono::seconds s, bool rolling);
-    timer(std::chrono::milliseconds ms, bool rolling);
-    /*timer(std::chrono::nanoseconds ns, bool rooling);*/
+    timer(duration_t dur, bool rolling);
 
     void start();
     void on_timeout(void_func &&callback);

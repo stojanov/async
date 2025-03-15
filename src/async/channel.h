@@ -1,5 +1,6 @@
 #pragma once
 
+#include "async/defines.h"
 #include <async/pch.h>
 #include <async/runtime/runtime.h>
 
@@ -50,7 +51,7 @@ template <typename T> struct channel_core {
     };
 
     struct observer_block {
-        any_func func;
+        value_state_func func;
         cid_t id;
     };
 
@@ -72,7 +73,11 @@ template <typename T> struct channel_core {
             return;
         }
 
+        // Notify here if ready to be taken, handle if no waiting ready
+        // propagate "ready" state to observer and my value as well
         if (!_observables.empty()) {
+            // same principle as the select, order by which observable is ready
+            // to accept data
             auto observer = _observables.front();
             _observables.pop_back();
             // TODO:
@@ -81,6 +86,7 @@ template <typename T> struct channel_core {
 
             /*std::cout << "FROM OBS " << k.type().name() << "\n";*/
 
+            // channel is useless if observer attached,
             observer.func(std::any(value));
             return;
         }
@@ -117,15 +123,13 @@ template <typename T> struct channel_core {
         _waiting.emplace_back(h, awaitable);
     }
 
-    void add_obeservable(cid_t id, any_func func) {
-        auto found =
-            std::ranges::find_if(_observables, [id](auto &observer_block) {
-                return observer_block.id != id;
-            });
-
-        if (found == std::end(_observables)) {
-            _observables.emplace_back(func);
+    void add_obeservable(cid_t observer_id, value_state_func func) {
+        // lock
+        if (!_queue.empty()) {
+            func(value_state::READY, _id, std::nullopt);
         }
+
+        _observables.emplace_back(func);
     }
 
     void remove_observable(cid_t id) {}
@@ -139,6 +143,9 @@ template <typename T> struct channel_core {
     }
 
   private:
+    static inline std::atomic<cid_t> _s_id_counter{0};
+    cid_t _id;
+
     std::mutex _queue_m;
     std::queue<T> _queue;
 
@@ -151,6 +158,8 @@ template <typename T> struct channel_core {
 
 struct channel_base {
     virtual std::optional<std::any> try_fetch() = 0;
+
+    virtual void notify_request_on_data(cid_t observer_id);
     virtual void add_obeservable(cid_t id, any_func &&func) = 0;
 };
 

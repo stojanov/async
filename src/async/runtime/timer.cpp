@@ -2,9 +2,8 @@
 #include <chrono>
 
 namespace async::runtime {
-timer::timer(std::chrono::seconds s, bool rolling) : _duration(s) {}
-
-timer::timer(std::chrono::milliseconds ms, bool rolling) : _duration(ms) {}
+timer::timer(duration_t s, bool rolling)
+    : _duration(std::chrono::duration_cast<std::chrono::milliseconds>(s)) {}
 
 void timer::start() { _last_start = clk_t::now(); }
 
