@@ -6,7 +6,7 @@ FCFS lockless queue, only for resumed handles
 
 for stuff not handled by epoll, provide our own, maybe delegate actual io work to our own event loop in addition to epoll
 
-software timer thread uses sparse set, try to avoid re allocating, dynamic freq for timer
+software timer thread uses sparse set(linked list of sparse set contigious memory blocks, top level indexing as well), try to avoid re allocating, dynamic freq for timer
 
 util:
     push to channel when timeout, built in 
