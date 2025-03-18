@@ -23,6 +23,8 @@ bool timer_thread::work() {
     const auto dt = clk_t::now() - t;
 
     if (dt > _resolution) {
+        _saturated = true;
+        // signal that we are overflowing
         return false;
     }
 

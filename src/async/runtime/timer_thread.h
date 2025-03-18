@@ -51,7 +51,7 @@ class timer_thread {
     }
 
     // TODO:
-    [[nodiscard]] bool saturated() { return false; }
+    [[nodiscard]] bool saturated() { return _saturated; }
 
     void cleanup() {
         {
@@ -64,6 +64,8 @@ class timer_thread {
 
   private:
     std::chrono::milliseconds _resolution;
+
+    std::atomic_bool _saturated{false};
 
     std::mutex _timers_m;
     // TODO: this needs to be a sorted list
