@@ -10,7 +10,7 @@ software timer thread uses sparse set, try to avoid re allocating, dynamic freq 
 
 util:
     push to channel when timeout, built in 
-    make select not only receive channels but receive timer-expirations
+    make select not only receive channels but receive timer-expirations, maybe also select can receive operations ?
     handle child processes
 
 
