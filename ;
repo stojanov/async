@@ -1,0 +1,57 @@
+#pragma once
+
+#include <async/cont/sparse_set.h>
+#include <async/pch.h>
+
+namespace async {
+
+template <typename T, typename H_f = std::hash<T>> class sparse_set_list {
+    static constexpr auto hasher = H_f{};
+
+  public:
+    class iterator {
+      private:
+        T *ptr;
+
+      public:
+        explicit iterator(T *p) : ptr(p) {}
+
+        T &operator*() { return *ptr; }
+
+        iterator &operator++() {
+            ++ptr;
+            return *this;
+        }
+
+        iterator operator++(iterator) {
+            iterator temp = *this;
+            ++(*this);
+            return temp;
+        }
+
+        bool operator==(const iterator &other) const {
+            return ptr == other.ptr;
+        }
+
+        bool operator!=(const iterator &other) const {
+            return ptr != other.ptr;
+        }
+    };
+
+  private:
+    struct priv_key {};
+
+  public:
+    // TODO: figure out optimal block size
+    sparse_set_list(std::size_t block_size) {}
+
+    void add(const T &value) {}
+    void add(T &&value) {}
+
+  private:
+    using p = u_ptr<associative_sparse_set<T, H_f>>;
+
+    std::map<int, p> _mp;
+};
+
+} // namespace async

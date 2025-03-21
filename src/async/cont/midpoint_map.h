@@ -6,6 +6,7 @@
 
 #include <async/defines.h>
 #include <async/pch.h>
+#include <optional>
 
 namespace async {
 
@@ -19,6 +20,7 @@ u64 create_key(u32 key, u32 ready) {
 }
 
 struct sorter_less {
+    // this needs to be as fast a possible
     constexpr bool operator()(const u64 &lhs, const u64 &rhs) const {
         const auto [rk, rr] = unpack_u32(rhs);
 
@@ -42,8 +44,8 @@ struct sorter_less {
         const auto blr = static_cast<int>((bool)lr);
         const auto brr = static_cast<int>((bool)rr);
 
-        const auto afl = (u32_m * blr) + (blr * left);
-        const auto afr = (u32_m * brr) + (brr * right);
+        const auto afl = (u32_m * blr);
+        const auto afr = (u32_m * brr);
 
         const auto left_factor = afl + (blr * lr);
         const auto right_factor = afr + (brr * rr);
@@ -67,9 +69,16 @@ struct sorter_less {
 
 } // namespace detail
 
-// TODO: extend, generic
+// TODO: extend, generic ?
 template <typename ValueT> class midpoint_map {
   private:
+    // using a formula you can directly query the ranges metadata, by using the
+    // interval you get a range "prefix" sum in about 2 log n, while also
+    // getting some extra functionality built in, use variant to specify
+    // metadata for a range, sort function should account for this "offset" in a
+    // way, this would be the one that provides the range addition, if every
+    // ready factor unique double space complexity, also maximum range of ready
+    // factor is smaller
     using mp_t = std::map<u64, ValueT, detail::sorter_less>;
     using it_t = mp_t::iterator;
 
@@ -77,30 +86,61 @@ template <typename ValueT> class midpoint_map {
     // TODO: extend it
     class value_key_it : public it_t {
       public:
-        std::pair<u32, ValueT *> operator*() const {
+        using pair_t = std::pair<u32, ValueT *>;
+
+        pair_t operator->() const { return value_key_it::operator*(); }
+
+        pair_t operator*() const {
             auto &n = it_t::operator*();
 
             const auto [key, _] = unpack_u32(n.first);
 
             return std::pair(key, &n.second);
         }
+
+        it_t raw_it() { return this; }
     };
 
     midpoint_map() { mp[0] = ValueT(); }
 
-    void add(u32 key, const std::string &m, u32 factor) {
-        mp[detail::create_key(key, factor)] = m;
+    it_t add(u32 key, const ValueT &m, u32 factor) {
+        auto iter = mp.insert(std::pair(detail::create_key(key, factor), m));
+
+        return iter.first;
     }
 
-    void toggle_add(u32 key, bool ready) {}
-    void toggle(u32 key, bool ready) {}
+    it_t add(u32 key, const ValueT &&m, u32 factor) {
+        auto iter =
+            mp.insert(std::pair(detail::create_key(key, factor), std::move(m)));
+
+        return iter.first;
+    }
+
+    void remove(u32 key);
+    void remove(it_t i);
+
+    void update_prio(u32 key, u32 prio) {
+        auto found = find(key);
+        update_prio(found, prio);
+    }
+
+    void update_prio(it_t i, u32 prio) {
+        if (i == mp.end()) {
+            return;
+        }
+
+        auto [id, _] = unpack_u32(i->first);
+
+        mp.insert(
+            std::pair(detail::create_key(id, prio), std::move(i->second)));
+        mp.erase(i);
+    }
 
     it_t find(u32 id) {
         auto midpoint = mp.find(0);
 
         // TODO: write tests
         // ensure checks on ranges at the benigning
-        //
         const auto l = mp.size();
 
         if (l == 0) {
@@ -119,11 +159,6 @@ template <typename ValueT> class midpoint_map {
             }
         }
 
-        auto end = mp.end();
-        std::advance(end, -1);
-
-        const auto [highest_normal_index, _] = unpack_u32(end->first);
-
         auto lower = midpoint;
         auto higher = midpoint;
 
@@ -131,7 +166,11 @@ template <typename ValueT> class midpoint_map {
         std::advance(higher, 1);
 
         if (higher != mp.end()) {
-            auto [_id, ready] = unpack_u32(higher->first);
+            auto end = mp.end();
+            std::advance(end, -1);
+
+            const auto [highest_normal_index, _] = unpack_u32(end->first);
+            auto [_id, prio_factor] = unpack_u32(higher->first);
 
             if (_id == id) {
                 return higher;
@@ -145,7 +184,7 @@ template <typename ValueT> class midpoint_map {
                 if (value != mp.end()) {
                     return value;
                 } else {
-                    std::cout << "NOT POSSIBLE, DIDN't FIND IT \n";
+                    std::cout << "NOT POSSIBLE, DIDN'T FIND IT \n";
                 }
             }
         }
@@ -173,70 +212,72 @@ template <typename ValueT> class midpoint_map {
     // filter
     //
     // return a range
-    std::pair<it_t, it_t> find_prio(u32 prio) {
+    std::pair<it_t, std::optional<it_t>> find_prio_range(u32 min_prio,
+                                                         u32 max_prio) {
         // can i get the distance/size of things with same prio can be min max,
         // in possibly logn time without N
-        auto new_key = combine_u32(0, prio);
+        //
+        if (min_prio == 0) {
+            // when extended the right side to something
+            // then we do extra shit here!
+            auto midpoint = mp.find(0);
+            std::advance(midpoint, 1);
+            return {midpoint, mp.end()};
+        }
+
+        auto new_key = combine_u32(0, min_prio);
         auto value = mp.upper_bound(new_key);
 
-        const auto unpacked = unpack_u32(value->first);
-
-        std::cout << "START OF VALUE " << unpacked.first << ", "
-                  << unpacked.second << "\n";
+        const auto unpacked_start_node = unpack_u32(value->first);
 
         if (value == mp.end()) {
-            std::cout << "VALUE END\n";
-            return {value, value};
+            return {value, std::nullopt};
         }
 
-        /*if (unpacked.second == prio) {*/
-        /*    return value;*/
-        /*}*/
-
-        // TODO: think about edge cases, return end when no key is in the ready
-        // domain
-        if (unpacked.second != prio) {
-            std::cout << "ADVANCED \n";
-            /*std::advance(value, 1);*/
+        if (unpacked_start_node.second != min_prio) {
+            return {mp.end(), std::nullopt};
         }
 
-        auto upper_bound = combine_u32(0, prio + 1);
+        const auto upper_bound_key = combine_u32(0, max_prio);
         // can this be omptimized it will still be logn but with a custom tree
-        // i can define the start node to search in theory O()
-        auto value_upper = mp.lower_bound(upper_bound);
+        // i can define the start node to search in theory worst O(log n), best
+        // smaller not really that much speed up but still a point to think
+        // about
+        auto upper_node = mp.lower_bound(upper_bound_key);
 
-        if (value_upper == mp.end()) {
-            std::cout << "END\n";
-            return {value, mp.end()};
+        // TODO: cannot assume that we return end here, what if there are no
+        // stuff here!, what we need to check if we are still at the same
+        if (upper_node == mp.end()) {
+            std::advance(upper_node, -1);
+
+            if (upper_node == mp.end()) {
+                // impossible
+                return {value, std::nullopt};
+            }
+
+            const auto [_, upper_prio] = unpack_u32(upper_node->first);
+
+            if (upper_prio == min_prio) {
+                return {value, mp.end()};
+            }
+
+            // Rare
+            return {value, std::nullopt};
         }
 
-        auto upper_unpacked1 = unpack_u32(value_upper->first);
-
-        std::cout << "SECOND START " << value_upper->second << "\n";
-
-        std::advance(value_upper, -1);
-
-        auto upper_unpacked = unpack_u32(value_upper->first);
-
-        std::cout << "SECOND " << value_upper->second << "\n";
-
-        if (upper_unpacked.second != prio) {
-            return {value, mp.end()};
+        auto [_, upper_prio] = unpack_u32(upper_node->first);
+        if (upper_prio == 0) {
+            return {value, std::nullopt};
         }
 
-        /*if (value_upper == value) {*/
-        /*    return { value;*/
-        /*}*/
-        /**/
-        /*// sanity check if same prio if not same it*/
-        /*if (upper_unpacked.second != prio) {*/
-        /*}*/
-
-        // domain
-        return {value, value_upper};
+        return {value, upper_node};
     }
 
-    void find_prio_range(u32 min, u32 max) {}
+    std::pair<it_t, std::optional<it_t>> find_prio(u32 min) {
+        return find_prio_range(min, min + 1);
+    }
+
+    std::pair<it_t, it_t> get_all_prio() { return {mp.begin(), mp.find(0)}; }
 
     void print(std::string_view name) {
         std::cout << "MIDPOINT MAP " << name << "\n";
@@ -247,9 +288,14 @@ template <typename ValueT> class midpoint_map {
         }
     }
 
+    // TODO: has to skip the midpoint
     // override iterator to give the correct key
     value_key_it value_key_begin() { return value_key_it(mp.begin()); }
     value_key_it value_key_end() { return value_key_it(mp.end()); }
+
+    // these should be const
+    it_t begin() { return mp.begin(); }
+    it_t end() { return mp.end(); }
 
   private:
     mp_t mp;

@@ -54,7 +54,7 @@ struct signal : private detail::signal_core {
 
             if (block.predicate()) {
                 it = _waiting.erase(it);
-                runtime::runtime::get().submit_resume(block.handle;
+                runtime::runtime::get().submit_resume(block.handle);
             } else {
                 it++;
             }
