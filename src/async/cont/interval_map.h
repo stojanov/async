@@ -46,6 +46,7 @@ template <std::integral K, typename V> class interval_map {
         add_interval_impl(interval, value);
     }
 
+    // consumes the range/interval
     void add_interval_overlap_filler_clear(const interval_t &interval,
                                            const V &value) {
         const auto &[start, end] = interval;
@@ -53,53 +54,19 @@ template <std::integral K, typename V> class interval_map {
 
         auto const end_start = std::end(_mp_start);
 
-        std::advance(i, -1);
+        std::function<bool(it_t)> predicate = [end](it_t i) {
+            return i->first < end &&
+                   i->second.type == interval_type::START_FILLER;
+        };
+
         if (my_range_end != end_start) {
-            while (true) {
-                if (i == my_range_end || i == std::begin(_mp_start)) {
-                    break;
-                }
-
-                if (i->second.type == interval_type::START_FILLER) {
-                    auto i_copy = i;
-
-                    std::advance(i_copy, -1);
-
-                    /*spdlog::info("REMOVING ({}, {}) = {}: \t {}={}", start,
-                     * end,*/
-                    /*             value, i->first, i->second.value);*/
-
-                    _mp_start.erase(i);
-                    i = i_copy;
-                } else {
-                    std::advance(i, -1);
-                }
-            }
-        } else {
-            while (true) {
-                if (i == end_start || i == std::begin(_mp_start)) {
-                    break;
-                }
-
-                if (i->first < end &&
-                    i->second.type == interval_type::START_FILLER) {
-                    auto i_copy = i;
-
-                    std::advance(i_copy, -1);
-                    /*spdlog::info("REMOVING ({}, {}) = {}: \t {}={}", start,
-                     * end,*/
-                    /*             value, i->first, i->second.value);*/
-                    /**/
-                    _mp_start.erase(i);
-
-                    i = i_copy;
-                } else {
-                    std::advance(i, -1);
-                }
-            }
+            predicate = [](it_t i) {
+                return i->second.type == interval_type::START_FILLER;
+            };
         }
 
-        /*spdlog::info("ADDED AND ERASED ({}, {}) = {}", start, end, value);*/
+        std::advance(i, -1);
+        remove_if(i, my_range_end, predicate, -1);
     }
 
     void update_interval(const interval_t &original,
@@ -108,7 +75,8 @@ template <std::integral K, typename V> class interval_map {
     std::optional<V *> find_in_interval(const K &interval_value) {
         const auto lower = _mp_start.lower_bound(interval_value);
 
-        if (lower->second.other_key_value < interval_value) {
+        if (lower == std::end(_mp_start) ||
+            lower->second.other_key_value < interval_value) {
             return std::nullopt;
         }
 
@@ -130,7 +98,8 @@ template <std::integral K, typename V> class interval_map {
 
   private:
     std::pair<it_t, it_t> add_interval_impl(const interval_t &interval,
-                                            const V &value) {
+                                            const V &value,
+                                            bool consume = false) {
         const auto &[start, end] = interval;
 
         const auto end_start = std::end(_mp_start);
@@ -196,7 +165,32 @@ template <std::integral K, typename V> class interval_map {
         return {i, my_range_end};
     }
 
-    void clear_overlap_filler() {}
+    // [start, end)
+    void remove_if(it_t start, it_t end, std::function<bool(it_t)> pred,
+                   int incr) {
+
+        const auto mp_end = std::end(_mp_start);
+        const auto mp_begin = std::begin(_mp_start);
+
+        auto i = start;
+        while (true) {
+            if (i == end || i == mp_end || i == mp_begin) {
+                break;
+            }
+
+            if (pred(i)) {
+                auto i_copy = i;
+                std::advance(i_copy, incr);
+
+                _mp_start.erase(i);
+
+                i = i_copy;
+                continue;
+            }
+
+            std::advance(i, incr);
+        }
+    }
 
   private:
     mp_t _mp_start;
