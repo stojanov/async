@@ -31,3 +31,7 @@ fenwick, priority index, call graph
 
 
 pipe/queue notification system, connected to epoll instance, and in turn our own event loop
+
+
+create the custom red black tree, it's needed to reduce operations 
+add "platform" for io context
