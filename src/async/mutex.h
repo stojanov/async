@@ -1,0 +1,59 @@
+#pragma once
+
+#include <async/pch.h>
+#include <async/runtime/runtime.h>
+#include <async/util/sync_op.h>
+
+namespace async {
+
+struct mutex_core {
+    bool is_free() {
+        std::lock_guard lck(_M);
+        return _awaiting.empty();
+    }
+
+    void add_waiting(coro_handle h) {
+        std::lock_guard lck(_M);
+        _awaiting.push_back(h);
+    }
+
+    void unlock() {
+        std::lock_guard lck(_M);
+        auto first = _awaiting.front();
+        _awaiting.pop_front();
+        runtime::runtime::get().submit_resume(first);
+    }
+
+    // TODO: optimize
+    std::list<coro_handle> _awaiting;
+    std::mutex _M;
+};
+
+struct mutex_awaitable_t {
+    mutex_awaitable_t(mutex_core &core) : _core(core) {}
+
+    bool await_ready() { return _core.is_free(); }
+
+    void await_suspend(coro_handle h) {
+        if (_core.is_free()) {
+            h.resume();
+        } else {
+            _core.add_waiting(h);
+        }
+    }
+
+    void await_resume() {}
+
+  private:
+    mutex_core &_core;
+};
+
+struct mutex {
+    mutex_awaitable_t lock() { return mutex_awaitable_t{_core}; }
+
+    void unlock() { _core.unlock(); }
+
+  private:
+    mutex_core _core;
+};
+} // namespace async

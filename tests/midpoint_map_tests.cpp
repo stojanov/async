@@ -62,7 +62,7 @@ TEST_F(MidPointMapTest, EnsureSortingIsMaintainedSamePrio) {
 
     vec_t expected = {
         {1, "A"},   {3, "C"},  {6, "F"},  {7, "G"}, {8, "H"}, {9, "E"},
-        {12, "K1"}, {10, "X"}, {11, "K"}, {0, ""},  {2, "B"}, {4, "D"},
+        {12, "K1"}, {10, "X"}, {11, "K"}, {2, "B"}, {4, "D"},
     };
 
     async::u32 co = 0;
@@ -85,7 +85,7 @@ TEST_F(MidPointMapTest, EnsureSortingIsMaintainedSamePrio_UpdateTest) {
 
         vec_t expected = {{1, "A"},  {3, "C"},   {6, "F"}, {8, "H"},
                           {9, "E"},  {12, "K1"}, {7, "G"}, {10, "X"},
-                          {11, "K"}, {0, ""},    {2, "B"}, {4, "D"}};
+                          {11, "K"}, {2, "B"},   {4, "D"}};
 
         async::u32 co = 0;
         for (auto i = mp->value_key_begin(); i != mp->value_key_end(); i++) {
@@ -104,7 +104,7 @@ TEST_F(MidPointMapTest, EnsureSortingIsMaintainedSamePrio_UpdateTest) {
 
         vec_t expected = {{1, "A"}, {3, "C"},   {6, "F"}, {8, "H"},
                           {9, "E"}, {12, "K1"}, {7, "G"}, {10, "X"},
-                          {2, "B"}, {11, "K"},  {0, ""},  {4, "D"}};
+                          {2, "B"}, {11, "K"},  {4, "D"}};
 
         async::u32 co = 0;
         for (auto i = mp->value_key_begin(); i != mp->value_key_end(); i++) {

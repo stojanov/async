@@ -2,6 +2,7 @@
 
 #include <async/pch.h>
 #include <async/runtime/coroutine.h>
+#include <async/runtime/io_context_thread.h>
 
 #include <async/runtime/runqueue.h>
 #include <async/runtime/timer_thread.h>
@@ -10,7 +11,8 @@
 
 namespace async::runtime {
 struct runtime_core {
-    using thread_var_t = std::variant<timer_thread, worker_thread>;
+    using thread_var_t =
+        std::variant<timer_thread, worker_thread, io_context_thread>;
 
     struct thread_visitor;
 
@@ -32,8 +34,14 @@ struct runtime_core {
             work_fun([&](runtime_core &core) { thread.work(); });
         };
 
+        void operator()(io_context_thread &thread) {
+            work_fun([&](runtime_core &core) { thread.work(); });
+        };
+
         void on_start() { _core._load.fetch_add(1); }
         void on_finish() { _core._load.fetch_sub(1); }
+
+        // not every thread has to enable the _capacity
         void work_fun(std::function<void(runtime_core &core)> f) {
             on_start();
             f(_core);
@@ -54,7 +62,7 @@ struct runtime_core {
         const auto id = _id.get();
 
         auto thread_work_variant = std::make_unique<thread_var_t>();
-        thread_work_variant->emplace<T>(std::forward<Args...>(args)...);
+        thread_work_variant->emplace<T>(std::forward<Args>(args)...);
 
         const auto thread_work = [this, work = thread_work_variant.get()]() {
             worker(work);

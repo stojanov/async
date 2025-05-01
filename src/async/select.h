@@ -1,5 +1,6 @@
 #pragma once
 
+#include "async/cont/midpoint_map_wrapper.h"
 #include "async/defines.h"
 #include "async/runtime/runtime.h"
 #include <async/channel.h>
@@ -9,6 +10,17 @@
 #include <iostream>
 
 namespace async {
+
+namespace detail {
+struct channel_wrapper {
+    s_ptr<channel_base> channel;
+    value_state state;
+};
+
+struct channel_sort {
+    u32 prio(const channel_wrapper &ch) { return static_cast<u32>(ch.state); }
+};
+}; // namespace detail
 
 template <typename... Args> struct select_core {
     using core_t = select_core<Args...>;
@@ -125,7 +137,9 @@ template <typename... Args> struct select_core {
             // reordering while adding might be complicated, find a way to to
             // this
             chan->add_obeservable(
-                _id, [this](std::any value) { notify_on_value_state(value); });
+                _id, [this](value_state v_state, cid_t id, std::any value) {
+                    notify_on_value_state(v_state, id, value);
+                });
         });
     }
 
@@ -143,7 +157,6 @@ template <typename... Args> struct select_core {
         // maybe add edge triggered level triggered
         {
             std::lock_guard lck(_waiting_M);
-            // TODO log n
             auto empty_wait_it =
                 std::ranges::find_if(_waiting, [](auto &waiting) {
                     return !waiting.awaitable->_value.has_value();
@@ -201,8 +214,10 @@ template <typename... Args> struct select_core {
     // TODO: think about this !
     std::deque<waiting_block> _waiting;
 
-    std::deque<std::any> _value_queue;
     std::vector<s_ptr<channel_base>> _channels;
+    std::deque<std::any> _value_queue;
+
+    midpoint_map_adapter<detail::channel_wrapper, detail::channel_sort> _chl;
 };
 
 // TODO: invalid ref, invalid pointers

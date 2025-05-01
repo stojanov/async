@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <coroutine>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -25,6 +26,8 @@ using u16 = std::uint16_t;
 using u32 = std::uint32_t;
 using u64 = std::uint64_t;
 
+using bytespan = std::span<std::byte>;
+
 // TODO:
 static constexpr u16 MAX_TIMERS = 16000;
 static constexpr u16 MAX_THREADS = 16000;
@@ -37,7 +40,7 @@ template <typename T> using u_ptr = std::unique_ptr<T>;
 using duration_t = clk_t::duration;
 using coro_handle = std::coroutine_handle<>;
 
-enum class value_state { READY, CONSUMED, SHOULD_NOTIFY };
+enum class value_state { READY = 0, CONSUMED, SHOULD_NOTIFY };
 
 using value_state_func =
     std::function<void(value_state, cid_t id, std::optional<std::any>)>;

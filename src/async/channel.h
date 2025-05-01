@@ -3,6 +3,7 @@
 #include "async/defines.h"
 #include <async/pch.h>
 #include <async/runtime/runtime.h>
+#include <optional>
 
 namespace async {
 
@@ -79,7 +80,7 @@ template <typename T> struct channel_core {
             // same principle as the select, order by which observable is ready
             // to accept data
             auto observer = _observables.front();
-            _observables.pop_back();
+            _observables.pop_front();
             // TODO:
             //
             auto k = std::any(value);
@@ -159,6 +160,9 @@ template <typename T> struct channel_core {
 struct channel_base {
     virtual std::optional<std::any> try_fetch() = 0;
 
+    virtual std::optional<std::any>
+    try_fetch_non_notify(cid_t non_notify_id) = 0;
+
     virtual void notify_request_on_data(cid_t observer_id);
     virtual void add_obeservable(cid_t id, any_func &&func) = 0;
 };
@@ -173,6 +177,7 @@ template <typename T> struct channel : public channel_base {
 
     void push(const T &value) { _core.push(value); }
 
+    // fetch await
     channel_core<T>::chan_awaitable fetch() { return _core.fetch(); }
 
     std::optional<std::any> try_fetch() final {
@@ -184,6 +189,9 @@ template <typename T> struct channel : public channel_base {
 
         return v.value();
     }
+
+  private:
+    std::optional<std::any> try_fetch_non_notify(cid_t non_notify_id) {}
 
     void add_obeservable(cid_t id, any_func &&func) final {
         _core.add_obeservable(id, func);

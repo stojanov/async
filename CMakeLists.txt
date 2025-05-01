@@ -17,7 +17,7 @@ file(GLOB_RECURSE ASYNC_HEADERS src/*.h)
 
 add_compile_options(-fsanitize=address -fno-sanitize=alignment -fsanitize=enum
                     -fsanitize=leak)
-#
+
 link_libraries(-fsanitize=address -fno-sanitize=alignment -fsanitize=enum
                -fsanitize=leak)
 
@@ -30,6 +30,14 @@ set(LIBRARY_NAME "${PROJECT_NAME}_lib")
 add_library(${LIBRARY_NAME} STATIC ${ASYNC_SOURCES})
 target_precompile_headers(${LIBRARY_NAME} PUBLIC src/async/pch.h)
 target_include_directories(${LIBRARY_NAME} PUBLIC ${CMAKE_SOURCE_DIR}/src/)
+
+if (WIN32)
+    add_compile_definitions(${LIBRARY_NAME} PRIVATE PLATFORM_WINDOWS)
+elseif (APPLE)
+    add_compile_definitions(${LIBRARY_NAME} PRIVATE PLATFORM_MACOS)
+elseif (UNIX)
+    add_compile_definitions(${LIBRARY_NAME} PRIVATE PLATFORM_LINUX)
+endif()
 
 enable_testing()
 

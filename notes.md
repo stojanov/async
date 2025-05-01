@@ -35,3 +35,8 @@ pipe/queue notification system, connected to epoll instance, and in turn our own
 
 create the custom red black tree, it's needed to reduce operations 
 add "platform" for io context
+
+
+maybe add a sync block, arc<mutex> but support for variant types
+
+consider move operations on std::optional

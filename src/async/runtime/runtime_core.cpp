@@ -1,3 +1,4 @@
+#include "async/runtime/io_context_thread.h"
 #include <async/runtime/runtime_core.h>
 #include <async/runtime/timer_thread.h>
 #include <async/runtime/worker_thread.h>
@@ -32,6 +33,7 @@ void runtime_core::submit(task_func &&func) {
     _runqueue.push_pending_raw_task({func});
 }
 
+// should be able to specify somekind of priority
 void runtime_core::submit_resume(std::coroutine_handle<> h) {
     _runqueue.push_pending_resume(h);
 };
@@ -51,9 +53,11 @@ void runtime_core::shutdown() {
 
     _runqueue.shutdown();
 
-    const auto visitor =
-        var_overload{[](worker_thread &thread) { thread.signal_shutdown(); },
-                     [](timer_thread &thread) { thread.cleanup(); }};
+    const auto visitor = var_overload{
+        [](worker_thread &thread) { thread.signal_shutdown(); },
+        [](timer_thread &thread) { thread.cleanup(); },
+        [](io_context_thread &thread) { thread.shutdown(); },
+    };
 
     std::ranges::for_each(_threads, [&visitor](thread_block &block) {
         std::visit(visitor, *block.thread_work);

@@ -1,3 +1,5 @@
+#pragma once
+
 #include "async/utils.h"
 #include <cstdint>
 #include <iostream>
@@ -12,14 +14,14 @@ namespace async {
 
 namespace detail {
 
-u64 create_key(u32 key, u32 ready) {
+static inline u64 midpoint_create_key(u32 key, u32 ready) {
     if (ready) {
         return combine_u32(key, ready);
     }
     return combine_u32(key, ready);
 }
 
-struct sorter_less {
+struct midpoint_sorter_less {
     // this needs to be as fast a possible
     constexpr bool operator()(const u64 &lhs, const u64 &rhs) const {
         const auto [rk, rr] = unpack_u32(rhs);
@@ -79,61 +81,121 @@ template <typename ValueT> class midpoint_map {
     // way, this would be the one that provides the range addition, if every
     // ready factor unique double space complexity, also maximum range of ready
     // factor is smaller
-    using mp_t = std::map<u64, ValueT, detail::sorter_less>;
+    using mp_t = std::map<u64, ValueT, detail::midpoint_sorter_less>;
     using it_t = mp_t::iterator;
 
   public:
+    class skip_mid_it : public it_t {
+      public:
+        // needs decrement as well
+        it_t &operator++() noexcept {
+            it_t::operator++();
+
+            if (it_t::operator*().first == 0) {
+                it_t::operator++();
+            }
+
+            return *this;
+        }
+
+        it_t operator++(int) noexcept {
+            it_t temp = *this;
+            it_t::operator++(1);
+
+            if (it_t::operator*().first == 0) {
+                it_t::operator++(1);
+            }
+
+            return temp;
+        }
+
+        it_t &operator--() noexcept {
+            it_t::operator--();
+
+            if (it_t::operator*().first == 0) {
+                it_t::operator--();
+            }
+
+            return *this;
+        }
+
+        it_t operator--(int) noexcept {
+            it_t temp = *this;
+            it_t::operator--(1);
+
+            if (it_t::operator*().first == 0) {
+                it_t::operator--(1);
+            }
+
+            return temp;
+        }
+    };
+
     // TODO: extend it
-    class value_key_it : public it_t {
+    class value_key_it : public skip_mid_it {
       public:
         using pair_t = std::pair<u32, ValueT *>;
+
+        value_key_it(it_t it) : skip_mid_it(it) {}
 
         pair_t operator->() const { return value_key_it::operator*(); }
 
         pair_t operator*() const {
-            auto &n = it_t::operator*();
+            auto &n = skip_mid_it::operator*();
 
             const auto [key, _] = unpack_u32(n.first);
 
             return std::pair(key, &n.second);
         }
 
-        it_t raw_it() { return this; }
+        skip_mid_it raw_it() { return this; }
     };
 
     midpoint_map() { mp[0] = ValueT(); }
 
     it_t add(u32 key, const ValueT &m, u32 factor) {
-        auto iter = mp.insert(std::pair(detail::create_key(key, factor), m));
+        auto iter =
+            mp.insert(std::pair(detail::midpoint_create_key(key, factor), m));
 
         return iter.first;
     }
 
     it_t add(u32 key, const ValueT &&m, u32 factor) {
-        auto iter =
-            mp.insert(std::pair(detail::create_key(key, factor), std::move(m)));
+        auto iter = mp.insert(
+            std::pair(detail::midpoint_create_key(key, factor), std::move(m)));
 
         return iter.first;
     }
 
-    void remove(u32 key);
-    void remove(it_t i);
+    void remove(u32 key) { mp.erase(find(key)); }
 
-    void update_prio(u32 key, u32 prio) {
+    void remove(it_t i) { mp.erase(i); }
+
+    bool update_prio(u32 key, u32 prio) {
         auto found = find(key);
-        update_prio(found, prio);
+        return update_prio(found, prio);
     }
 
-    void update_prio(it_t i, u32 prio) {
+    bool update_prio(u32 key, std::function<u32(const ValueT &)> adapter) {
+        auto found = find(key);
+        if (found == std::end(mp)) {
+            return false;
+        }
+        return update_prio(found, adapter(found->second));
+    }
+
+    bool update_prio(it_t i, u32 prio) {
         if (i == mp.end()) {
-            return;
+            return false;
         }
 
         auto [id, _] = unpack_u32(i->first);
 
-        mp.insert(
-            std::pair(detail::create_key(id, prio), std::move(i->second)));
+        mp.insert(std::pair(detail::midpoint_create_key(id, prio),
+                            std::move(i->second)));
         mp.erase(i);
+
+        return true;
     }
 
     it_t find(u32 id) {
@@ -294,8 +356,13 @@ template <typename ValueT> class midpoint_map {
     value_key_it value_key_end() { return value_key_it(mp.end()); }
 
     // these should be const
-    it_t begin() { return mp.begin(); }
-    it_t end() { return mp.end(); }
+    skip_mid_it begin() { return skip_mid_it(mp.begin()); }
+    skip_mid_it end() { return skip_mid_it(mp.end()); }
+
+    it_t raw_begin() { return mp.begin(); }
+    it_t raw_end() { return mp.end(); }
+
+    it_t midpoint_it() { return mp.find(0); }
 
   private:
     mp_t mp;

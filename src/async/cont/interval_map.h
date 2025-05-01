@@ -26,6 +26,9 @@ template <std::integral K, typename V> class interval_map {
         K other_key_value;
         interval_type type;
 
+        interval_entry *head_start;
+        interval_entry *next_filler;
+
         // can the fillers be in another map?
         interval_entry create_filler_from_this() {
             return interval_entry{value, other_key_value,
