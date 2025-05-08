@@ -16,18 +16,20 @@ class runtime {
     runtime();
     static runtime &get();
 
-    template <typename T> struct Closure {
-        T state;
-    };
-
     void submit(task_func &&task, int prio = 1);
     void submit_resume(coro_handle h);
 
-    void submit_io_op(s_ptr<io::pal::io_op> op);
+    bool submit_io_op(s_ptr<io::pal::io_op> op);
 
     template <typename T>
-    void submit_t(Closure<T> closure, closure_task_func<T> &&task,
-                  int prio = 1);
+    void submit_closure(T &state, closure_task_func<T> &&closure_func,
+                        int prio = 1) {
+        auto task = [closure_func](std::any &state) {
+            closure_func(std::any_cast<T>(state));
+        };
+
+        submit(task, prio);
+    }
 
     void shutdown();
 

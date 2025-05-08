@@ -340,12 +340,17 @@ template <typename ValueT> class midpoint_map {
     }
 
     std::pair<it_t, it_t> get_all_prio() { return {mp.begin(), mp.find(0)}; }
+    std::pair<it_t, it_t> get_all_latter() {
+        auto start = mp.find(0);
+        std::advance(start, 1);
+        return {start, mp.end()};
+    }
 
     void print(std::string_view name) {
         std::cout << "MIDPOINT MAP " << name << "\n";
         for (auto &i : mp) {
             const auto [id, factor] = unpack_u32(i.first);
-            std::cout << "\tID:" << id << "\tVAL: " << i.second
+            std::cout << "\tID:" << id << "\tVAL: "
                       << "\tRID:" << i.first << "\tRF:" << factor << "\n";
         }
     }

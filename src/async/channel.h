@@ -1,9 +1,11 @@
 #pragma once
 
 #include "async/defines.h"
+#include <algorithm>
 #include <async/pch.h>
 #include <async/runtime/runtime.h>
 #include <optional>
+#include <random>
 
 namespace async {
 
@@ -57,7 +59,8 @@ template <typename T> struct channel_core {
     };
 
   public:
-    channel_core() {}
+    channel_core(cid_t id)
+        : _rnd_gen(_rnd_dev()), _rnd_dist(0.f, 1.f), _id(id) {}
 
     // TODO: add move
     void push(const T &value) {
@@ -74,34 +77,43 @@ template <typename T> struct channel_core {
             return;
         }
 
-        // Notify here if ready to be taken, handle if no waiting ready
-        // propagate "ready" state to observer and my value as well
-        if (!_observables.empty()) {
-            // same principle as the select, order by which observable is ready
-            // to accept data
-            auto observer = _observables.front();
-            _observables.pop_front();
-            // TODO:
-            //
-            auto k = std::any(value);
+        const auto observers_notification = [&]() {
+            for (auto i = _observables.begin(); i != _observables.end(); i++) {
+                if (i->func(value_state::NOTIFY, _id, std::any(value))) {
+                    return true;
+                }
+            }
+            return false;
+        };
 
-            /*std::cout << "FROM OBS " << k.type().name() << "\n";*/
-
-            // channel is useless if observer attached,
-            observer.func(std::any(value));
+        if (!_observables.empty() && is_waiting_empty) {
+            if (!observers_notification()) {
+                std::lock_guard lck(_queue_m);
+                _queue.push(value);
+                notify_observers(value_state::READY);
+            }
             return;
         }
 
-        waiting_values first;
-        {
-            std::lock_guard lck(_waiting_m);
-            first = _waiting.front();
-            _waiting.pop_front();
+        if (!_observables.empty() && !is_waiting_empty) {
+            if (_rnd_dist(_rnd_gen) > 0.5) {
+                if (!observers_notification()) {
+                    goto consume_value_waiting;
+                }
+            } else {
+            consume_value_waiting:
+                waiting_values first;
+                {
+                    std::lock_guard lck(_waiting_m);
+                    first = _waiting.front();
+                    _waiting.pop_front();
+                }
+
+                first.awaitable->_value = value;
+
+                runtime::runtime::get().submit_resume(first.handle);
+            }
         }
-
-        first.awaitable->_value = value;
-
-        runtime::runtime::get().submit_resume(first.handle);
     }
 
     chan_awaitable fetch() { return {*this}; }
@@ -115,6 +127,11 @@ template <typename T> struct channel_core {
 
         auto value = _queue.back();
         _queue.pop();
+
+        // Todo: can this be optimized
+        if (_queue.empty()) {
+            notify_observers(value_state::CONSUMED);
+        }
 
         return value;
     }
@@ -143,8 +160,15 @@ template <typename T> struct channel_core {
         });
     }
 
+    void notify_observers(value_state state,
+                          std::optional<std::any> value = std::nullopt) {
+        std::ranges::for_each(
+            _observables, [&](auto &block) { block.func(state, _id, value); });
+    }
+
+    cid_t id() { return _id; }
+
   private:
-    static inline std::atomic<cid_t> _s_id_counter{0};
     cid_t _id;
 
     std::mutex _queue_m;
@@ -155,22 +179,27 @@ template <typename T> struct channel_core {
 
     std::mutex _observable_m;
     std::deque<observer_block> _observables;
+
+    std::random_device _rnd_dev;
+    std::mt19937 _rnd_gen;
+    std::uniform_real_distribution<> _rnd_dist;
 };
 
 struct channel_base {
     virtual std::optional<std::any> try_fetch() = 0;
 
-    virtual std::optional<std::any>
-    try_fetch_non_notify(cid_t non_notify_id) = 0;
+    virtual cid_t id() = 0;
 
-    virtual void notify_request_on_data(cid_t observer_id);
-    virtual void add_obeservable(cid_t id, any_func &&func) = 0;
+    virtual void add_obeservable(cid_t id, value_state_func &&func) = 0;
+    virtual void remove_observable(cid_t id) {};
+
+    static inline std::atomic<cid_t> _s_id_counter{1};
 };
 
 template <typename T> struct channel : public channel_base {
     using value_type = T;
 
-    channel() {}
+    channel() : _core(_s_id_counter.fetch_add(1)) {}
     ~channel() {
         // TODO: unblock all, maybe?
     }
@@ -183,6 +212,7 @@ template <typename T> struct channel : public channel_base {
     std::optional<std::any> try_fetch() final {
         auto v = _core.try_fetch();
 
+        spdlog::warn("CORE FETCH CHANNEL");
         if (v == std::nullopt) {
             return std::nullopt;
         }
@@ -190,10 +220,12 @@ template <typename T> struct channel : public channel_base {
         return v.value();
     }
 
+    cid_t id() { return _core.id(); }
+
   private:
     std::optional<std::any> try_fetch_non_notify(cid_t non_notify_id) {}
 
-    void add_obeservable(cid_t id, any_func &&func) final {
+    void add_obeservable(cid_t id, value_state_func &&func) final {
         _core.add_obeservable(id, func);
     }
 

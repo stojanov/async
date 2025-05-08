@@ -6,7 +6,9 @@
 namespace async::runtime {
 
 struct task_block {
-    task_func func;
+    std::variant<task_func, any_func> func;
+    // think about unnecessary copying
+    std::any state;
 };
 
 struct coro_block {

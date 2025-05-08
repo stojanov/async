@@ -81,6 +81,11 @@ struct runtime_core {
 
     // provide raw, and coroutine spawns
     void submit(task_func &&func);
+
+    template <typename T> void submit_closure(T &state, any_func func) {
+        _runqueue.push_pending_raw_task({func, state});
+    }
+
     void submit_resume(std::coroutine_handle<> h);
 
     void spawn_new();

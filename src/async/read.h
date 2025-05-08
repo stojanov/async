@@ -29,7 +29,6 @@ struct read_awaitable_t {
                      std::size_t nbytes)
         : _span(span), _nbytes(nbytes) {
         _core = std::make_shared<read_core>(handle);
-        runtime::runtime::get().submit_io_op(_core);
     }
 
     bool await_ready() { return false; }
@@ -38,6 +37,7 @@ struct read_awaitable_t {
         auto id = std::hash<std::thread::id>{}(std::this_thread::get_id());
         spdlog::warn("SUSPENDED {}", id);
         _core->add_waiting(h);
+        runtime::runtime::get().submit_io_op(_core);
     }
 
     std::size_t await_resume() {

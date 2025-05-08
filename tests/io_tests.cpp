@@ -16,7 +16,7 @@ class IOTests : public Test {
 };
 
 TEST_F(IOTests, ReadSTDIN) {
-    rtime().submit([] -> async::runtime::coroutine {
+    rtime().submit([]() -> async::runtime::coroutine {
         auto fd = async::io::io_handle(STDIN_FILENO);
 
         std::vector<std::byte> vector;

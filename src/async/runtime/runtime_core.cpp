@@ -35,7 +35,9 @@ void runtime_core::submit(task_func &&func) {
 
 // should be able to specify somekind of priority
 void runtime_core::submit_resume(std::coroutine_handle<> h) {
-    _runqueue.push_pending_resume(h);
+    if (h) {
+        _runqueue.push_pending_resume(h);
+    }
 };
 
 void runtime_core::worker(thread_var_t *work) {

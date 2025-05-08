@@ -1,13 +1,16 @@
 #pragma once
 
+#include "async/cont/midpoint_map.h"
 #include "async/cont/midpoint_map_wrapper.h"
 #include "async/defines.h"
 #include "async/runtime/runtime.h"
+#include <algorithm>
 #include <async/channel.h>
 #include <async/pch.h>
 #include <async/runtime/runtime_core.h>
 
 #include <iostream>
+#include <spdlog/spdlog.h>
 
 namespace async {
 
@@ -68,9 +71,8 @@ template <typename... Args> struct select_core {
 
         (
             [&value, &extracted]() {
-                /*std::cout << "EQUALS  " << k << "\n";*/
-                /*std::cout << "VALUE TYPE " << value.type().name() << "\n";*/
-                /*std::cout << "TYPE " << typeid(Args).name() << "\n";*/
+                // std::cout << "VALUE TYPE " << value.type().name() << "\n";
+                // std::cout << "TYPE " << typeid(Args).name() << "\n";
 
                 if (value.type() == typeid(Args)) {
                     extracted = std::optional<variant_types>(
@@ -82,37 +84,13 @@ template <typename... Args> struct select_core {
         return extracted;
     }
 
-    /*std::optional<variant_types> assign_value(std::any value) {*/
-    /*    auto k = extract_type(value);*/
-    /**/
-    /*    if (k == std::nullopt) {*/
-    /*        return std::nullopt;*/
-    /*    }*/
-    /**/
-    /*    return k;*/
-    /*}*/
-    /**/
     std::optional<variant_types> try_fetch() {
-        // Iterate the map starting by the first, by default sorting done on
-        // readyness and id(can be more)
-        // first should be ready if not then we have O(n) time
-        // worst case O(n)
-        if (!_value_queue.empty()) {
-            auto v = _value_queue.front();
-            _value_queue.pop_back();
-            return extract_type(v);
-        }
+        const auto prio = _chnl.get_all_latter();
 
-        // Don't iterate over all of them, keep a list of ready, already
-        // implemented just use the observer mechanic if no one is waiting
-        // if not found, then iterate, maybe the iteration can be also optimized
-        for (auto &channel : _channels) {
-            if (auto value = channel->try_fetch(); value) {
-                auto k = value.value();
-
-                /*std::cout << "FROM TRY FETCH " << k.type().name() << "\n";*/
-
-                return extract_type(k);
+        for (auto i = prio.first; i != prio.second; i++) {
+            if (auto value = std::move(i->second->try_fetch())) {
+                spdlog::warn("GOT VALUE FROM TRY FETCH ");
+                return extract_type(value.value());
             }
         }
 
@@ -120,60 +98,65 @@ template <typename... Args> struct select_core {
     }
 
     void attach_channels(std::shared_ptr<channel<Args>>... channels) {
-        ((_channels.push_back(channels)), ...);
+        ((_chnl.add(channels->id(), channels, 1)), ...);
 
-        // maybe no need for copy, think, line 122
+        // maybe no need for copy, think, line 110
         attach_observers();
     }
 
     void attach_observers() {
-        // this should be called only once at start up, keep a list of the
-        // values
-        //
+        // TODO: find a way to remove this,
+        // notify can reorder the map, making the iterators invalid
+        auto channels = _chnl;
 
-        auto channels = _channels;
-
-        std::ranges::for_each(channels, [this](auto &chan) {
-            // reordering while adding might be complicated, find a way to to
-            // this
-            chan->add_obeservable(
-                _id, [this](value_state v_state, cid_t id, std::any value) {
-                    notify_on_value_state(v_state, id, value);
+        for (auto i = channels.begin(); i != channels.end(); i++) {
+            i->second->add_obeservable(
+                _id, [this](value_state v_state, cid_t id,
+                            std::optional<std::any> value) {
+                    return notify_on_value_state(v_state, id, value);
                 });
-        });
+        }
     }
 
-    void notify_on_value_state(value_state v_state, cid_t id, std::any value) {
+    bool notify_on_value_state(value_state v_state, cid_t id,
+                               std::optional<std::any> value) {
         // TODO: THINK ABOUT locking
         std::coroutine_handle<> h = nullptr;
 
-        // switch on type, re order channels by readyness, first by default if
-        // not consumed always ready, check move to next in tree
-        // should have access to channel pointer to try fetch value
-        // channel handles extra cases if early consumption before we get to the
-        // value, notify every change, keep track even if we don't need to
-        // receive the value keep track if the value is consumed, maybe counter
-        // to know if we have a valid value if not we don't iterate
-        // maybe add edge triggered level triggered
-        {
+        switch (v_state) {
+        case value_state::READY:
+        case value_state::CONSUMED:
+            _chnl.update_prio(id, (u32)v_state);
+            return false;
+        case value_state::NOTIFY: {
             std::lock_guard lck(_waiting_M);
+            if (_waiting.empty()) {
+                return false;
+            }
+
             auto empty_wait_it =
                 std::ranges::find_if(_waiting, [](auto &waiting) {
                     return !waiting.awaitable->_value.has_value();
                 });
 
             if (empty_wait_it != std::end(_waiting)) {
-                empty_wait_it->awaitable->_value = extract_type(value);
-                std::cout << "\tNOTIFIED GOT VALUE\n";
+                empty_wait_it->awaitable->_value = extract_type(value.value());
                 h = empty_wait_it->h;
-            } else {
-                _value_queue.push_back(value);
+
+                spdlog::warn("GOT VALUE FROM NOTIFY {}",
+                             value.value().type().name());
             }
+        }
+        default:
+            break;
         }
 
         if (h) {
             runtime::runtime::get().submit_resume(h);
+            return true;
         }
+
+        return false;
     }
 
     void clean_up_waiting(std::coroutine_handle<> h) {
@@ -207,17 +190,17 @@ template <typename... Args> struct select_core {
     };
 
   private:
-    static inline std::atomic<cid_t> _s_id_counter{0};
+    static inline std::atomic<cid_t> _s_id_counter{1};
     cid_t _id;
 
     std::mutex _waiting_M;
     // TODO: think about this !
     std::deque<waiting_block> _waiting;
 
-    std::vector<s_ptr<channel_base>> _channels;
+    // std::vector<s_ptr<channel_base>> _channels;
     std::deque<std::any> _value_queue;
 
-    midpoint_map_adapter<detail::channel_wrapper, detail::channel_sort> _chl;
+    midpoint_map<s_ptr<channel_base>> _chnl;
 };
 
 // TODO: invalid ref, invalid pointers
@@ -231,10 +214,9 @@ template <typename... ChannelTypes> struct co_select {
         _core.attach_channels(channels...);
     }
 
-    void add_channel();
-
     select_awaitable_t fetch() { return select_awaitable_t{_core}; }
 
+    // to be used with decltype
     std::optional<variant_type> rtn_type() { return std::nullopt; }
 
   private:

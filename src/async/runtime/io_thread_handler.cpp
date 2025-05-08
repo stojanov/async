@@ -26,12 +26,9 @@ bool io_thread_handler::submit_io_op(s_ptr<io::pal::io_op> op) {
             notify_io_ready(handle);
         };
 
-        // const auto &new_block = _core.spawn_new<io_context_thread>(
-        //     std::dynamic_pointer_cast<io::pal::io_context>(ctx),
-        //     std::move(notify_cb));
-
+        // TODO: dynamic ballancing
         const auto &new_block =
-            _core.spawn_new<io_context_thread>(ctx, notify_cb);
+            _core.spawn_new<io_context_thread>(ctx, std::move(notify_cb));
 
         th = &std::get<io_context_thread>(*new_block.thread_work);
     }
