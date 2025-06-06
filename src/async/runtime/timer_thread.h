@@ -5,6 +5,8 @@
 
 #include <async/runtime/timer.h>
 
+#include <iostream>
+
 namespace async::runtime {
 class timer_thread {
   private:
@@ -49,7 +51,7 @@ class timer_thread {
     }
 
     // TODO:
-    [[nodiscard]] bool saturated() { return false; }
+    [[nodiscard]] bool saturated() { return _saturated; }
 
     void cleanup() {
         {
@@ -63,8 +65,12 @@ class timer_thread {
   private:
     std::chrono::milliseconds _resolution;
 
+    std::atomic_bool _saturated{false};
+
+    // operations queue, add/erase
+    // process on work()
     std::mutex _timers_m;
-    // TODO: this needs to be a sorted list
+    // TODO: this should use the sparse set list
     std::list<timer_block> _timers;
     id_gen<cid_t> _id;
 };

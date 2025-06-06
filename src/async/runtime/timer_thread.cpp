@@ -1,7 +1,11 @@
+#include "async/defines.h"
 #include <async/runtime/timer_thread.h>
+#include <chrono>
 
 namespace async::runtime {
-timer_thread::timer_thread(std::chrono::milliseconds resolution) {}
+timer_thread::timer_thread(duration_t resolution)
+    : _resolution(
+          std::chrono::duration_cast<std::chrono::milliseconds>(resolution)) {}
 
 bool timer_thread::work() {
     const auto t = clk_t::now();
@@ -19,6 +23,8 @@ bool timer_thread::work() {
     const auto dt = clk_t::now() - t;
 
     if (dt > _resolution) {
+        _saturated = true;
+        // signal that we are overflowing
         return false;
     }
 

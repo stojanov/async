@@ -3,11 +3,8 @@
 #include <atomic>
 #include <concepts>
 #include <queue>
-#include <type_traits>
 
 #include <async/defines.h>
-
-#include <iostream>
 
 namespace async {
 
@@ -57,6 +54,21 @@ static inline std::pair<u16, u16> unpack_u16(cid_t id) {
 
     const u16 b = id & n;
     const u16 a = id >> 16 & n;
+
+    return std::pair(a, b);
+}
+
+static inline cid_t combine_u32(u32 a, u32 b) {
+    const auto ua = (u64)a;
+    const auto ub = (u64)b;
+    return (ua << 32) | ub;
+}
+
+constexpr static inline std::pair<u32, u32> unpack_u32(cid_t id) {
+    const u32 n = 0xffffffff;
+
+    const u32 b = id & n;
+    const u32 a = id >> 32 & n;
 
     return std::pair(a, b);
 }

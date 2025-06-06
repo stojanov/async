@@ -115,6 +115,8 @@ TEST_F(SpawnTests, ChannelTests) {
     std::shared_ptr<async::channel<char>> chan2 =
         std::make_shared<async::channel<char>>();
 
+    spdlog::warn("IDS {} {} {}", chan->id(), chan1->id(), chan2->id());
+
     async::co_select sl{chan, chan1, chan2};
 
     std::mutex m;
@@ -174,7 +176,7 @@ TEST_F(SpawnTests, ChannelTests) {
             int i = 0;
             spdlog::error("STARTED PUSHING INT FROM SELECT BEFORE POLL");
             while (co_await async::poll()) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
                 std::cout << "-------- PUSHING INT " << i << "\n";
                 chan_ref->push(i);
@@ -197,7 +199,7 @@ TEST_F(SpawnTests, ChannelTests) {
             int i = 0;
             spdlog::error("STARTED PUSHING \tSTRING FROM SELECT BEFORE POLL");
             while (co_await async::poll()) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
                 auto tosend = str + std::to_string(i++);
                 std::cout << "-------- PUSHING STRING\n";
@@ -224,7 +226,7 @@ TEST_F(SpawnTests, ChannelTests) {
             char c = 'a';
             spdlog::error("STARTED PUSHING \tCHAR FROM SELECT BEFORE POLL");
             while (co_await async::poll()) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+                std::this_thread::sleep_for(std::chrono::milliseconds(15));
 
                 std::cout << "-------- PUSHING CHAR " << c << "\n";
 
@@ -242,6 +244,6 @@ TEST_F(SpawnTests, ChannelTests) {
 
     std::this_thread::sleep_for(std::chrono::seconds(200));
 
-    /*running = false;*/
+    running = false;
     rtime().shutdown();
 }

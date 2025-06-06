@@ -1,5 +1,6 @@
 #pragma once
 
+#include "async/defines.h"
 #include <async/pch.h>
 #include <async/runtime/coroutine.h>
 #include <async/runtime/defines.h>
@@ -9,6 +10,7 @@
 #include <spdlog/spdlog.h>
 
 #include <iostream>
+#include <variant>
 namespace async::runtime {
 
 class runqueue {
@@ -36,20 +38,26 @@ class runqueue {
         }
 
         auto id = _coro_id.get();
-        auto k =
-            coro_block{id, [func = block.func, this](cid_t id) -> coroutine {
-                           auto f = func;
-                           auto *self = this;
-                           func();
+        auto coro =
+            coro_block{id, [&block, this](cid_t id) -> coroutine {
+                           auto block_copy = block;
+
+                           if (std::holds_alternative<any_func>(block.func)) {
+                               auto func = std::get<any_func>(block.func);
+                               func(block_copy.state);
+                           } else {
+                               auto func = std::get<task_func>(block.func);
+                               func();
+                           }
                            spdlog::error("CORO FINISHED FROM INSIDE");
                            /*self->clean_coro(id);*/
                            co_return;
                        }(id)};
 
         spdlog::warn("STARTED/ACTIVATED CORO {}", id);
+
         std::lock_guard lck(_coroM);
-        /*std::cout << "PUSH\n";*/
-        _coroutines.push_back(std::move(k));
+        _coroutines.push_back(std::move(coro));
     }
 
     void release() {

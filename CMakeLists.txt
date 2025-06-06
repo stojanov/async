@@ -6,6 +6,7 @@ project(async)
 
 include($ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
 
+add_compile_definitions(SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_OFF)
 find_package(GTest CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 
@@ -18,7 +19,9 @@ add_compile_options(-fsanitize=address -fno-sanitize=alignment -fsanitize=enum
                     -fsanitize=leak)
 
 link_libraries(-fsanitize=address -fno-sanitize=alignment -fsanitize=enum
-               -fsanitize=leak spdlog::spdlog)
+               -fsanitize=leak)
+
+link_libraries(spdlog::spdlog)
 
 # set_target_properties(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER "${HEADERS}")
 
@@ -27,6 +30,14 @@ set(LIBRARY_NAME "${PROJECT_NAME}_lib")
 add_library(${LIBRARY_NAME} STATIC ${ASYNC_SOURCES})
 target_precompile_headers(${LIBRARY_NAME} PUBLIC src/async/pch.h)
 target_include_directories(${LIBRARY_NAME} PUBLIC ${CMAKE_SOURCE_DIR}/src/)
+
+if (WIN32)
+    add_compile_definitions(${LIBRARY_NAME} PRIVATE PLATFORM_WINDOWS)
+elseif (APPLE)
+    add_compile_definitions(${LIBRARY_NAME} PRIVATE PLATFORM_MACOS)
+elseif (UNIX)
+    add_compile_definitions(${LIBRARY_NAME} PRIVATE PLATFORM_LINUX)
+endif()
 
 enable_testing()
 
@@ -43,5 +54,9 @@ target_link_libraries(${TEST_NAME} PRIVATE GTest::gtest GTest::gtest_main
 
 target_link_libraries(${TEST_NAME} PRIVATE ${LIBRARY_NAME} spdlog::spdlog)
 
+target_compile_definitions(${TEST_NAME}
+                           PUBLIC SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_OFF)
 include(GoogleTest)
 gtest_discover_tests(${TEST_NAME})
+
+# add_subdirectory(${CMAKE_SOURCE_DIR}/benchmarks/)

@@ -2,5 +2,5 @@ Diagnostics:
   ClangTidy:
     Remove: boost-use-ranges
 CompileFlags:
-  # Compiler: gcc
+  Compiler: gcc
   CompilationDatabase: ./build/default/

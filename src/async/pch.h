@@ -11,12 +11,17 @@
 #include <deque>
 #include <functional>
 #include <list>
+#include <map>
 #include <queue>
+#include <random>
 #include <ranges>
+#include <set>
 #include <thread>
 #include <type_traits>
 #include <typeindex>
 #include <typeinfo>
+#include <unordered_map>
+#include <unordered_set>
 #include <variant>
 #include <vector>
 

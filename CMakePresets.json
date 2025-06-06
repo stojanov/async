@@ -15,12 +15,26 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
+    },
+    {
+      "name": "default-release",
+      "description": "Builds everything",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/default-rel",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
     }
   ],
   "buildPresets": [
     {
       "name": "default",
       "configurePreset": "default"
+    },
+    {
+      "name": "default-release",
+      "configurePreset": "default-release"
     }
   ]
 }
