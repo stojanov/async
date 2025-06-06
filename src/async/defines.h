@@ -29,10 +29,6 @@ using u64 = std::uint64_t;
 
 using bytespan = std::span<std::byte>;
 
-// TODO:
-static constexpr u16 MAX_TIMERS = 16000;
-static constexpr u16 MAX_THREADS = 16000;
-
 static inline auto empty_void_func = []() {};
 
 template <typename T> using s_ptr = std::shared_ptr<T>;

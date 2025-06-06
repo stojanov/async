@@ -1,6 +1,5 @@
 #include <gtest/gtest.h>
 
-#include <async/cont/midpoint_generic_multihash.h>
 #include <async/defines.h>
 
 /*using namespace async;*/

@@ -3,7 +3,7 @@
 - finish interval map
 - finish sparse set list
 - optimize copy of value in interval map
-- add support for kernel timers with epoll
+- add support for kernel timers with epoll!
 
 # Planning io context
 io context should just notify
@@ -12,8 +12,8 @@ io operations should be done in the platform layer, resume should be done in the
 io context should notify ready handles and then delegate them to the runtime
 where we should store pending io operations with their corresponding co routine handle
 
-add continious wait stuff on read/epoll, not remove
-add intantanious response if a fd is ready
+- add continious wait stuff on read/epoll, not remove
+- add intantanious response if a fd is ready
 
 # Cool shit for select, Planning
 - channel/select awaitable interface, interface should adhear to be available in select notify operations
@@ -31,3 +31,5 @@ maybe a refinement on the channel part just maybe without queue, a signalling me
 
 ## issues
 - how do we handle multiple waits on epoll, who should get the notify signal ?
+- fix removal of coroutines from runtime when final_suspend
+

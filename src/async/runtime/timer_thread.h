@@ -70,7 +70,7 @@ class timer_thread {
     // operations queue, add/erase
     // process on work()
     std::mutex _timers_m;
-    // TODO: this needs to be a sorted list
+    // TODO: this should use the sparse set list
     std::list<timer_block> _timers;
     id_gen<cid_t> _id;
 };

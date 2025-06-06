@@ -67,6 +67,7 @@ template <typename T, typename H_f = std::hash<T>> class sparse_set_list {
     //
     // lot of cid_t(unique, block size N) map to a single u32
     // what will sort of key do?
+    // TODO, integrate interval map into it
     std::unordered_map<cid_t, u32> _key_relation;
 };
 

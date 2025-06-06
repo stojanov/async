@@ -12,6 +12,7 @@ namespace detail {};
 
 // V value should have equals operator, stongly encoraged for V to be a pointer
 // untill i can fix it
+// WIP
 template <std::integral K, typename V> class interval_map {
   public:
     using interval_t = std::pair<K, K>;
