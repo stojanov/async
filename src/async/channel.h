@@ -77,7 +77,8 @@ template <typename T> struct channel_core {
             return;
         }
 
-        const auto observers_notification = [&]() {
+        const auto observers_value_pass_notification = [&]() {
+            // Needs to be locked
             for (auto i = _observables.begin(); i != _observables.end(); i++) {
                 if (i->func(value_state::NOTIFY, _id, std::any(value))) {
                     return true;
@@ -87,7 +88,7 @@ template <typename T> struct channel_core {
         };
 
         if (!_observables.empty() && is_waiting_empty) {
-            if (!observers_notification()) {
+            if (!observers_value_pass_notification()) {
                 std::lock_guard lck(_queue_m);
                 _queue.push(value);
                 notify_observers(value_state::READY);
@@ -97,7 +98,7 @@ template <typename T> struct channel_core {
 
         if (!_observables.empty() && !is_waiting_empty) {
             if (_rnd_dist(_rnd_gen) > 0.5) {
-                if (!observers_notification()) {
+                if (!observers_value_pass_notification()) {
                     goto consume_value_waiting;
                 }
             } else {
