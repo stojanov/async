@@ -16,24 +16,24 @@ class timer_thread {
     };
 
   public:
-    timer_thread(duration_t resolution = duration_t(1));
+    timer_thread(duration_t resolution = std::chrono::milliseconds(1));
 
     bool work();
 
     cid_t add_timer(duration_t duration, bool rolling, void_func on_timeout) {
         const auto id = _id.get();
 
-        auto new_timer = timer(duration, rolling);
-        new_timer.on_timeout(std::move(on_timeout));
+        auto new_timer = timer(duration, rolling, std::move(on_timeout));
         new_timer.start();
 
         std::lock_guard lck(_timers_m);
         _timers.emplace_back(std::move(new_timer), id);
-        std::cout << "\tADDED TIMER " << id << "\n";
+        // std::cout << "\tADDED TIMER " << id << "\n";
 
         return id;
     }
 
+    // TODO: PROFILE, SLOW AFFFFFF
     void remove_timer(cid_t id) {
         std::lock_guard lck(_timers_m);
 
@@ -63,7 +63,7 @@ class timer_thread {
     }
 
   private:
-    std::chrono::milliseconds _resolution;
+    duration_t _resolution;
 
     std::atomic_bool _saturated{false};
 

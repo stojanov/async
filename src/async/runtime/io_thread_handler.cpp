@@ -40,6 +40,9 @@ bool io_thread_handler::submit_io_op(s_ptr<io::pal::io_op> op) {
     return true;
 }
 
+// this has to be wicked fast !!!!
+// support bulk operations
+// TODO: !!!!!
 void io_thread_handler::notify_io_ready(const io::pal::io_handle &handle) {
     if (auto i = _ops.find(handle.hash_code()); i != std::end(_ops)) {
         i->second->do_op();

@@ -3,7 +3,7 @@
 
 namespace async::runtime {
 runtime::runtime() : _timer_th_handler(_core), _io_th_handler(_core) {
-    _core.spawn(10);
+    _core.spawn(32);
 }
 
 runtime &runtime::get() {
@@ -11,7 +11,7 @@ runtime &runtime::get() {
     return r;
 }
 
-void runtime::submit(task_func &&func, int prio) {
+void runtime::submit(coroutine_void_func &&func, int prio) {
     _core.submit(std::move(func));
 }
 

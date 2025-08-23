@@ -7,12 +7,16 @@ namespace async::runtime {
 
 class timer_thread;
 
+// Base timer class, this is only meant for internal use
+// provided that the callback has to be a function that usually deffers
+// the heavy work to another thread in the runtime or saturates the runtime with
+// work, and the callback has to be very fast when called
 class timer {
     friend timer_thread;
     using resolution = std::chrono::milliseconds;
 
   public:
-    timer(duration_t dur, bool rolling);
+    timer(duration_t dur, bool rolling, void_func on_timeout);
 
     void start();
     void on_timeout(void_func &&callback);

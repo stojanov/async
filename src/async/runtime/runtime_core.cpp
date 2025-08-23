@@ -1,4 +1,4 @@
-#include "async/runtime/io_context_thread.h"
+#include <async/runtime/io_context_thread.h>
 #include <async/runtime/runtime_core.h>
 #include <async/runtime/timer_thread.h>
 #include <async/runtime/worker_thread.h>
@@ -29,12 +29,13 @@ void runtime_core::spawn(std::size_t N) {
     _capacity.fetch_add(N);
 }
 
-void runtime_core::submit(task_func &&func) {
+void runtime_core::submit(coroutine_void_func &&func) {
     _runqueue.push_pending_raw_task({func});
 }
 
 // should be able to specify somekind of priority
 void runtime_core::submit_resume(std::coroutine_handle<> h) {
+    // can this if be ommited
     if (h) {
         _runqueue.push_pending_resume(h);
     }

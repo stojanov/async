@@ -3,9 +3,7 @@
 #include <chrono>
 
 namespace async::runtime {
-timer_thread::timer_thread(duration_t resolution)
-    : _resolution(
-          std::chrono::duration_cast<std::chrono::milliseconds>(resolution)) {}
+timer_thread::timer_thread(duration_t resolution) : _resolution(resolution) {}
 
 bool timer_thread::work() {
     const auto t = clk_t::now();

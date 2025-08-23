@@ -53,11 +53,15 @@ struct runtime_core {
     };
 
     runtime_core();
-    ~runtime_core() { std::cout << "RUNTIME DEASD\n"; }
+
+    ~runtime_core() {
+        std::cout << "RUNTIME DEASD\n";
+        // _runqueue.print_stats();
+    }
 
     void spawn(std::size_t N);
 
-    template <typename T, typename... Args>
+    template <is_in_variant_v<thread_var_t> T, typename... Args>
     const thread_block &spawn_new(Args &&...args) {
         const auto id = _id.get();
 
@@ -80,7 +84,7 @@ struct runtime_core {
     bool has_available();
 
     // provide raw, and coroutine spawns
-    void submit(task_func &&func);
+    void submit(coroutine_void_func &&func);
 
     template <typename T> void submit_closure(T &state, any_func func) {
         _runqueue.push_pending_raw_task({func, state});

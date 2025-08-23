@@ -40,3 +40,5 @@ add "platform" for io context
 maybe add a sync block, arc<mutex> but support for variant types
 
 consider move operations on std::optional
+
+consider integrating a "base" "future" class, that operations can accept and integrate

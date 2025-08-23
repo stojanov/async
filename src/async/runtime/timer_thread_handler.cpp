@@ -3,7 +3,7 @@
 
 namespace async::runtime {
 void timer_thread_handler::remove_timer(cid_t id) {
-    auto [th_block_id, timer_id] = unpack_u16(id);
+    auto [th_block_id, timer_id] = unpack_u32(id);
 
     if (auto timer_block = find_timer_thread(th_block_id)) {
         auto &th = std::get<timer_thread>(*timer_block->thread_work);

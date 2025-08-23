@@ -33,10 +33,11 @@ void runqueue::push_pending_resume(std::coroutine_handle<> h) {
         std::lock_guard lck(_pending_coro_res_M);
         _pending_coro_resumes.push_back(h);
     }
-    /*spdlog::warn("PUSH CORO");*/
+    // spdlog::warn("Got resume");
     _wait_task_signal.notify_one();
 }
 
+// noone uses this as of now
 coro_handle runqueue::peek_pop_pending_resume() {
     // TODO: locking
     coro_handle h = _pending_coro_resumes.front();
@@ -71,7 +72,7 @@ std::optional<runqueue::task_object> runqueue::wait_on_pending_work() {
         std::lock_guard lck(_pending_coro_res_M);
         if (!_pending_coro_resumes.empty()) {
             coro_handle h = _pending_coro_resumes.front();
-            /*spdlog::warn("FOUND CORO");*/
+            // spdlog::warn("FOUND CORO");
             _pending_coro_resumes.pop_front();
             return h;
         }
@@ -80,8 +81,9 @@ std::optional<runqueue::task_object> runqueue::wait_on_pending_work() {
     {
         std::lock_guard lck(_raw_pending_M);
         if (!_pending_raw_tasks.empty()) {
+            // minimize copy
             task_block t = _pending_raw_tasks.front();
-            /*spdlog::warn("FOUND TASK");*/
+            spdlog::warn("FOUND TASK");
             _pending_raw_tasks.pop_front();
             return t;
         }

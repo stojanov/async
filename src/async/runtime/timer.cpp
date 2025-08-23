@@ -2,20 +2,13 @@
 #include <chrono>
 
 namespace async::runtime {
-timer::timer(duration_t s, bool rolling)
-    : _duration(std::chrono::duration_cast<std::chrono::milliseconds>(s)) {}
+timer::timer(duration_t s, bool rolling, void_func on_timeout)
+    : _duration(std::chrono::duration_cast<std::chrono::milliseconds>(s)),
+      _on_timeout(on_timeout) {}
 
 void timer::start() { _last_start = clk_t::now(); }
 
-void timer::on_timeout(void_func &&callback) {
-    _on_timeout = std::move(callback);
-}
-
-void timer::release() {
-    if (_on_timeout) {
-        _on_timeout();
-    }
-}
+void timer::release() { _on_timeout(); }
 
 void timer::tick() {
     if (_finished || (!_rolling && _over_step)) {
@@ -24,16 +17,12 @@ void timer::tick() {
     }
 
     const auto now = clk_t::now();
-    const auto took = clk_t::now() - _last_start;
+    const auto took = now - _last_start;
 
     if (took > _duration) {
         _over_step = true;
 
-        if (_on_timeout) {
-            // hmm ?
-            // schedule if takes time
-            _on_timeout();
-        }
+        _on_timeout();
 
         _last_start = now;
     } else {

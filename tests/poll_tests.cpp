@@ -28,63 +28,39 @@ TEST_F(PollTests, PerfTest) {
     std::atomic_size_t c = 0;
     bool running = true;
 
-    rtime().submit([&] -> async::runtime::coroutine {
-        auto &co = c;
-        auto &l = last;
-        auto &d = dur;
-        auto &r = running;
+    int coro_count = 4;
 
-        while (co_await async::poll() && r) {
-            /*std::cout << "|n";*/
-            co++;
-        }
-    });
+    for (int i = 0; i < coro_count; i++) {
+        rtime().submit([&] -> async::runtime::coroutine {
+            auto &co = c;
+            auto &l = last;
+            auto &d = dur;
+            auto &r = running;
 
-    rtime().submit([&] -> async::runtime::coroutine {
-        auto &co = c;
-        auto &l = last;
-        auto &d = dur;
-        auto &r = running;
+            while (co_await async::timed_poll(std::chrono::milliseconds(20)) &&
+                   r) {
+                /*std::cout << "|n";*/
+                co++;
+            }
 
-        while (co_await async::poll() && r) {
-            /*std::cout << "|n";*/
-            co++;
-        }
-    });
-
-    rtime().submit([&] -> async::runtime::coroutine {
-        auto &co = c;
-        auto &l = last;
-        auto &d = dur;
-        auto &r = running;
-
-        while (co_await async::poll() && r) {
-            /*std::cout << "|n";*/
-            co++;
-        }
-    });
-
-    rtime().submit([&] -> async::runtime::coroutine {
-        auto &co = c;
-        auto &l = last;
-        auto &d = dur;
-        auto &r = running;
-
-        while (co_await async::poll() && r) {
-            /*std::cout << "|n";*/
-            co++;
-        }
-    });
+            spdlog::warn("CORO FINISHED FROM FUNCTION OBJECT");
+        });
+    }
 
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
     running = false;
-    auto avg =
-        std::chrono::duration_cast<std::chrono::milliseconds>(dur).count() / c *
-        1.f;
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    dur = async::clk_t::now() - last;
+
+    auto time =
+        std::chrono::duration_cast<std::chrono::milliseconds>(dur).count();
+
+    auto avg = time * 1.f / c;
 
     auto manual = 1 * 1.f / c;
-
-    spdlog::warn("AVERAGE TIME BETWEEN POLLS {}, Switch count {}, manual {}",
-                 avg, c.load(), manual);
+    spdlog::warn("Coro count: {}\tTime: {}ms\tAverage time between poll: "
+                 "{}ms\tSwitch Count: {}",
+                 coro_count, time, avg, c.load());
 }

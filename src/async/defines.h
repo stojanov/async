@@ -1,5 +1,6 @@
 #pragma once
 
+#include <async/runtime/coroutine.h>
 #include <chrono>
 #include <coroutine>
 #include <cstddef>
@@ -9,7 +10,8 @@
 
 namespace async {
 
-using task_func = std::function<void()>;
+using coroutine_void_func = std::function<runtime::coroutine()>;
+using coroutine_any_func = std::function<runtime::coroutine(std::any &)>;
 
 template <typename T>
 using closure_task_func = std::function<void(const T &closure)>;

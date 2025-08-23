@@ -6,14 +6,16 @@
 namespace async::runtime {
 
 struct task_block {
-    std::variant<task_func, any_func> func;
+    std::variant<coroutine_void_func, coroutine_any_func> func;
     // think about unnecessary copying
     std::any state;
 };
 
 struct coro_block {
+    // might not be needed to also store the id
     cid_t id;
     std::coroutine_handle<> coro;
+    std::any state;
 };
 
 template <typename T> struct coro_block_closure {

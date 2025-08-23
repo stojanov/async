@@ -1,6 +1,6 @@
 #pragma once
 
-#include "async/defines.h"
+#include <async/defines.h>
 #include <async/pch.h>
 #include <async/runtime/coroutine.h>
 #include <async/runtime/defines.h>
@@ -18,6 +18,13 @@ class runqueue {
     using task_object = std::variant<task_block, coro_handle>;
 
     runqueue();
+
+    void print_stats() {
+        spdlog::warn("Runqueue destructor: resumes {}, tasks {}",
+                     _pending_coro_resumes.size(), _pending_raw_tasks.size());
+    }
+
+    ~runqueue() {}
 
     void push_pending_raw_task(task_block &block);
     void push_pending_raw_task(task_block &&block);
@@ -38,40 +45,50 @@ class runqueue {
         }
 
         auto id = _coro_id.get();
-        auto coro =
-            coro_block{id, [&block, this](cid_t id) -> coroutine {
-                           auto block_copy = block;
+        decltype(_coroutines)::iterator entry;
 
-                           if (std::holds_alternative<any_func>(block.func)) {
-                               auto func = std::get<any_func>(block.func);
-                               func(block_copy.state);
-                           } else {
-                               auto func = std::get<task_func>(block.func);
-                               func();
-                           }
-                           spdlog::error("CORO FINISHED FROM INSIDE");
-                           /*self->clean_coro(id);*/
-                           co_return;
-                       }(id)};
+        {
+            std::lock_guard lck(_coroM);
 
-        spdlog::warn("STARTED/ACTIVATED CORO {}", id);
+            auto lower_entry = _coroutines.insert(
+                std::pair{id, coro_block{id, nullptr, block.state}});
 
-        std::lock_guard lck(_coroM);
-        _coroutines.push_back(std::move(coro));
+            if (!lower_entry.second) {
+                // TODO: handle
+                return;
+            }
+
+            entry = lower_entry.first;
+        }
+
+        coroutine coro;
+
+        if (std::holds_alternative<coroutine_any_func>(block.func)) {
+            auto func = std::get<coroutine_any_func>(block.func);
+            coro = func(entry->second.state);
+        } else {
+            auto func = std::get<coroutine_void_func>(block.func);
+            coro = func();
+        }
+
+        // later figure out a way to rely only on the hash/address of the handle
+        coro._id = id;
+
+        entry->second.coro = coro;
     }
 
     void release() {
-        for (auto &block : _coroutines) {
-            block.coro.resume();
-        }
+        // for (auto &block : _coroutines) {
+        //     block.coro.resume();
+        // }
     }
 
     void shutdown() {
         _is_dropped = true;
 
         for (auto i = _coroutines.begin(); i != _coroutines.end();) {
-            std::cout << "====\t ==== DESTROYING " << i->id << "\n";
-            i->coro.destroy();
+            // std::cout << "====\t ==== DESTROYING " << i->id << "\n";
+            i->second.coro.destroy();
             i = _coroutines.erase(i);
         }
     }
@@ -81,17 +98,12 @@ class runqueue {
         std::lock_guard lck(_coroM);
         spdlog::warn("Cleaning up coro id: {}, coro size: {}", id,
                      _coroutines.size());
-        auto i = std::find_if(_coroutines.begin(), _coroutines.end(),
-                              [id](coro_block &coro) {
-                                  std::cout << "ID OF CORO " << id << " MATCH "
-                                            << coro.id << "\n";
-                                  return coro.id == id;
-                              });
 
-        std::cout << i->id << "\n";
-        i->coro.destroy();
-        _coroutines.erase(i);
-        std::cout << "CLEARING CORO " << id << "\n";
+        if (auto i = _coroutines.find(id); i != std::end(_coroutines)) {
+            i->second.coro.destroy();
+            _coroutines.erase(i);
+            spdlog::warn("CLEARING CORO {}", id);
+        }
     }
 
     std::mutex _wait_task_M;
@@ -109,7 +121,10 @@ class runqueue {
 
     // TODO: optimize, fenwick tree, binary indexed tree, segment tree
     std::mutex _coroM;
-    std::deque<coro_block> _coroutines;
+    std::map<cid_t, coro_block> _coroutines;
+
+    std::mutex _liveM;
+    std::deque<coro_handle> _live_coro;
 
     id_gen<cid_t> _coro_id;
     std::atomic_bool _is_dropped{false};

@@ -12,7 +12,7 @@ class timer_thread_handler {
     cid_t attach_timer(duration_t duration, bool rolling,
                        void_func on_timeout) {
         timer_thread *th = nullptr;
-        cid_t th_id = 0;
+        u32 th_id = 0;
 
         if (auto *th_block = find_first_timer_thread()) {
             th = &std::get<timer_thread>(*th_block->thread_work);
@@ -24,9 +24,11 @@ class timer_thread_handler {
             th_id = block.id;
         }
 
+        // TODO: this has to be u32 but also the provider has to be aware of it
+        // aka th
         auto timer_id = th->add_timer(duration, rolling, on_timeout);
 
-        return combine_u16(th_id, timer_id);
+        return combine_u32(th_id, timer_id);
     }
 
     void remove_timer(cid_t id);

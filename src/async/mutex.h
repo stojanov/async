@@ -34,13 +34,7 @@ struct mutex_awaitable_t {
 
     bool await_ready() { return _core.is_free(); }
 
-    void await_suspend(coro_handle h) {
-        if (_core.is_free()) {
-            h.resume();
-        } else {
-            _core.add_waiting(h);
-        }
-    }
+    void await_suspend(coro_handle h) { _core.add_waiting(h); }
 
     void await_resume() {}
 
@@ -49,7 +43,7 @@ struct mutex_awaitable_t {
 };
 
 struct mutex {
-    mutex_awaitable_t lock() { return mutex_awaitable_t{_core}; }
+    mutex_awaitable_t lock() { return {_core}; }
 
     void unlock() { _core.unlock(); }
 

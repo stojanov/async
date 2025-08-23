@@ -3,7 +3,7 @@
 #include <async/io/pal/io_handle.h>
 #include <async/io/pal/io_op.h>
 #include <async/pch.h>
-#include <async/runtime/coroutine.h>
+// #include <async/runtime/coroutine.h>
 #include <async/runtime/defines.h>
 #include <async/runtime/io_thread_handler.h>
 #include <async/runtime/runtime_core.h>
@@ -16,7 +16,7 @@ class runtime {
     runtime();
     static runtime &get();
 
-    void submit(task_func &&task, int prio = 1);
+    void submit(coroutine_void_func &&task, int prio = 1);
     void submit_resume(coro_handle h);
 
     bool submit_io_op(s_ptr<io::pal::io_op> op);
@@ -24,8 +24,8 @@ class runtime {
     template <typename T>
     void submit_closure(T &state, closure_task_func<T> &&closure_func,
                         int prio = 1) {
-        auto task = [closure_func](std::any &state) {
-            closure_func(std::any_cast<T>(state));
+        const auto task = [closure_func](std::any &state) {
+            closure_func(std::any_cast<T &>(state));
         };
 
         submit(task, prio);
@@ -40,6 +40,8 @@ class runtime {
 
     void remove_timer(cid_t id) { _timer_th_handler.remove_timer(id); }
 
+    void remove_coro();
+
   private:
     // TODO:
     // priority, maybe ?
@@ -51,5 +53,9 @@ class runtime {
 };
 
 static inline auto &get() { return runtime::get(); }
+
+static inline void submit(coroutine_void_func &&task, int prio = 1) {
+    get().submit(std::move(task), prio);
+}
 
 } // namespace async::runtime

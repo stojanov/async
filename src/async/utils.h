@@ -77,8 +77,17 @@ template <class... Ts> struct var_overload : Ts... {
     using Ts::operator()...;
 };
 
+template <typename T, typename Variant> struct is_in_variant;
+
+template <typename T, typename... Ts>
+struct is_in_variant<T, std::variant<Ts...>>
+    : std::disjunction<std::is_same<T, Ts>...> {};
+
+template <typename T, typename Variant>
+concept is_in_variant_v = is_in_variant<T, Variant>::value;
+
 template <typename R, typename V>
 concept range_of =
     std::ranges::range<R> && std::same_as<std::ranges::range_value_t<R>, V>;
-;
+
 } // namespace async
