@@ -5,7 +5,7 @@
 #include <coroutine>
 
 namespace async::runtime {
-runtime_core::runtime_core() : _visitor(*this) {}
+runtime_core::runtime_core() : _thread_work_visitor(*this) {}
 
 void runtime_core::spawn(std::size_t N) {
     assert(N >= 2);
@@ -33,6 +33,10 @@ void runtime_core::submit(coroutine_void_func &&func) {
     _runqueue.push_pending_raw_task({func});
 }
 
+void runtime_core::submit(void_func &&func) {
+    _runqueue.push_pending_raw_task({func});
+}
+
 // should be able to specify somekind of priority
 void runtime_core::submit_resume(std::coroutine_handle<> h) {
     // can this if be ommited
@@ -46,8 +50,10 @@ void runtime_core::worker(thread_var_t *work) {
         std::unique_lock lck(_start_M);
         _start_signal.wait(lck, [this]() { return _running.load(); });
     }
+    // not while, just start the work, just slows down the threads
+    // idk actually think about this
     while (_running) {
-        std::visit(_visitor, *work);
+        std::visit(_thread_work_visitor, *work);
     }
 }
 
@@ -57,7 +63,7 @@ void runtime_core::shutdown() {
     _runqueue.shutdown();
 
     const auto visitor = var_overload{
-        [](worker_thread &thread) { thread.signal_shutdown(); },
+        [](worker_thread &thread) {},
         [](timer_thread &thread) { thread.cleanup(); },
         [](io_context_thread &thread) { thread.shutdown(); },
     };

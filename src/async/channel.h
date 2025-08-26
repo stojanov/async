@@ -1,7 +1,7 @@
 #pragma once
 
-#include <async/defines.h>
 #include <algorithm>
+#include <async/defines.h>
 #include <async/pch.h>
 #include <async/runtime/runtime.h>
 #include <optional>
@@ -114,6 +114,21 @@ template <typename T> struct channel_core {
 
                 runtime::runtime::get().submit_resume(first.handle);
             }
+
+            return;
+        }
+
+        if (!is_waiting_empty) {
+            waiting_values first;
+            {
+                std::lock_guard lck(_waiting_m);
+                first = _waiting.front();
+                _waiting.pop_front();
+            }
+
+            first.awaitable->_value = value;
+
+            runtime::runtime::get().submit_resume(first.handle);
         }
     }
 

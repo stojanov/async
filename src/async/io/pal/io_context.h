@@ -13,6 +13,11 @@ class io_context {
 
     virtual void attach_handle(const io_handle &h, io_type t) = 0;
 
+    // This must not have a loop
+    // only the implementation of the waiting event loop
+    // loop is done top side
     virtual void run() = 0;
+
+    virtual void signal_shutdown() = 0;
 };
 } // namespace async::io::pal

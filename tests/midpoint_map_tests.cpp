@@ -57,6 +57,11 @@ class MidPointMapTest : public testing::Test {
 
 using vec_t = std::vector<std::pair<async::u32, std::string>>;
 
+TEST_F(MidPointMapTest, PRINTMAP) {
+    fill_dummy();
+    mp->print("MIDPOINTMAP TEST");
+}
+
 TEST_F(MidPointMapTest, EnsureSortingIsMaintainedSamePrio) {
     fill_dummy();
 

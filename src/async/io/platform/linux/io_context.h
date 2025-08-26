@@ -16,8 +16,11 @@ class io_context : public pal::io_context {
 
     void run() override;
 
+    void signal_shutdown() override;
+
   private:
     pal::io_context::notify_callback _notify_cb;
+    std::atomic_bool _running;
     std::vector<epoll_event> _epoll_events;
     int _epfd;
 };

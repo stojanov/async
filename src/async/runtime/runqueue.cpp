@@ -68,6 +68,7 @@ std::optional<runqueue::task_object> runqueue::wait_on_pending_work() {
         });
     }
 
+    // TODO: merge theese into one, single variant can get the job done
     {
         std::lock_guard lck(_pending_coro_res_M);
         if (!_pending_coro_resumes.empty()) {

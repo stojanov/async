@@ -5,21 +5,24 @@
 #include <async/runtime/worker_thread.h>
 
 namespace async::runtime {
-worker_thread::worker_thread(runtime_core &core)
-    : _core(core), _running(std::make_shared<std::atomic_bool>(true)) {}
 
-void worker_thread::signal_shutdown() { _running->store(false); }
+struct work_visitor {
+    inline void operator()(task_block &block) {
+        th->_core._runqueue.activate(block);
+    }
+
+    inline void operator()(coro_handle handle) { handle.resume(); }
+
+    worker_thread *th;
+};
+
+worker_thread::worker_thread(runtime_core &core) : _core(core) {}
+
 // consider exit case
-void worker_thread::work() {
-    auto work_visitor = var_overload{
-        [this](task_block &block) { _core._runqueue.activate(block); },
-        [this](coro_handle handle) { handle.resume(); },
-    };
+void worker_thread::activate_pending_work() {
 
-    while (*_running) {
-        if (auto task = _core._runqueue.wait_on_pending_work()) {
-            std::visit(work_visitor, *task);
-        }
+    if (auto task = _core._runqueue.wait_on_pending_work()) {
+        std::visit(work_visitor{this}, *task);
     }
 }
 } // namespace async::runtime

@@ -24,8 +24,8 @@ struct signal_core {
 struct pred_awaitable {
     friend signal_core;
 
-    pred_awaitable(signal_core &core, predicate_func &predicate)
-        : _core(core), _predicate(predicate) {}
+    pred_awaitable(signal_core &core, predicate_func &&predicate)
+        : _core(core), _predicate(std::move(predicate)) {}
 
     // check if it's available if signal
     bool await_ready() { return _predicate(); }
@@ -36,7 +36,7 @@ struct pred_awaitable {
 
     void await_resume() {}
 
-    const predicate_func &_predicate;
+    const predicate_func _predicate;
     signal_core &_core;
 };
 } // namespace detail
@@ -45,7 +45,7 @@ struct signal : private detail::signal_core {
     signal() {}
 
     detail::pred_awaitable wait_if(predicate_func &&func) {
-        return {*this, func};
+        return {*this, std::move(func)};
     };
 
     void notify_all() {
@@ -53,8 +53,8 @@ struct signal : private detail::signal_core {
             auto &block = *it;
 
             if (block.predicate()) {
-                it = _waiting.erase(it);
                 runtime::runtime::get().submit_resume(block.handle);
+                it = _waiting.erase(it);
             } else {
                 it++;
             }

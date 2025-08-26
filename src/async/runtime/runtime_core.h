@@ -2,8 +2,8 @@
 
 #include <async/pch.h>
 #include <async/runtime/coroutine.h>
-#include <async/runtime/io_context_thread.h>
 
+#include <async/runtime/io_context_thread.h>
 #include <async/runtime/runqueue.h>
 #include <async/runtime/timer_thread.h>
 #include <async/runtime/worker_thread.h>
@@ -14,38 +14,37 @@ struct runtime_core {
     using thread_var_t =
         std::variant<timer_thread, worker_thread, io_context_thread>;
 
-    struct thread_visitor;
+    // struct thread_visitor;
 
     struct thread_block {
         cid_t id;
         u_ptr<thread_var_t> thread_work;
         u_ptr<std::thread> thread;
+        // this isn't used
         std::coroutine_handle<> active;
     };
 
-    struct thread_visitor {
-        thread_visitor(runtime_core &core) : _core(core) {}
+    struct thread_work_visitor {
+        thread_work_visitor(runtime_core &core) : _core(core) {}
 
         void operator()(timer_thread &thread) {
-            work_fun([&](runtime_core &core) { thread.work(); });
-        };
+            while (_core._running) {
+                thread.run_timers();
+            }
+        }
 
         void operator()(worker_thread &thread) {
-            work_fun([&](runtime_core &core) { thread.work(); });
+            while (_core._running) {
+                _core._load.fetch_add(1);
+                thread.activate_pending_work();
+                _core._load.fetch_sub(1);
+            }
         };
 
         void operator()(io_context_thread &thread) {
-            work_fun([&](runtime_core &core) { thread.work(); });
-        };
-
-        void on_start() { _core._load.fetch_add(1); }
-        void on_finish() { _core._load.fetch_sub(1); }
-
-        // not every thread has to enable the _capacity
-        void work_fun(std::function<void(runtime_core &core)> f) {
-            on_start();
-            f(_core);
-            on_finish();
+            while (_core._running) {
+                thread.work();
+            };
         }
 
       private:
@@ -86,11 +85,18 @@ struct runtime_core {
     // provide raw, and coroutine spawns
     void submit(coroutine_void_func &&func);
 
+    // pure func/task,
+    // TODO: in the future maybe use the std::future abstraction
+    // For the coroutines provide our own future base
+    void submit(void_func &&func);
+
     template <typename T> void submit_closure(T &state, any_func func) {
         _runqueue.push_pending_raw_task({func, state});
     }
 
     void submit_resume(std::coroutine_handle<> h);
+
+    void remove_coro(cid_t);
 
     void spawn_new();
     void shutdown();
@@ -103,7 +109,7 @@ struct runtime_core {
     std::atomic<std::size_t> _load;
 
     std::list<thread_block> _threads;
-    thread_visitor _visitor;
+    thread_work_visitor _thread_work_visitor;
     id_gen<cid_t> _id;
 
     // TODO: think about each thread to have it's own queue

@@ -18,8 +18,6 @@ class timer_thread {
   public:
     timer_thread(duration_t resolution = std::chrono::milliseconds(1));
 
-    bool work();
-
     cid_t add_timer(duration_t duration, bool rolling, void_func on_timeout) {
         const auto id = _id.get();
 
@@ -27,6 +25,7 @@ class timer_thread {
         new_timer.start();
 
         std::lock_guard lck(_timers_m);
+
         _timers.emplace_back(std::move(new_timer), id);
         // std::cout << "\tADDED TIMER " << id << "\n";
 
@@ -53,6 +52,8 @@ class timer_thread {
     // TODO:
     [[nodiscard]] bool saturated() { return _saturated; }
 
+    bool run_timers();
+
     void cleanup() {
         {
             std::lock_guard lck(_timers_m);
@@ -72,7 +73,7 @@ class timer_thread {
     std::mutex _timers_m;
     // TODO: this should use the sparse set list
     std::list<timer_block> _timers;
-    id_gen<cid_t> _id;
+    id_gen<u32> _id;
 };
 
 using p_timer_thread = std::unique_ptr<timer_thread>;

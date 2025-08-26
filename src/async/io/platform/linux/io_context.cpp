@@ -3,9 +3,10 @@
 
 #include <spdlog/spdlog.h>
 #include <sys/epoll.h>
+#include <sys/eventfd.h>
 
 namespace async::io::lin {
-io_context::io_context(int event_count) {
+io_context::io_context(int event_count) : _running{true} {
     _epoll_events.resize(event_count);
 
     _epfd = epoll_create1(0);
@@ -46,18 +47,27 @@ void io_context::attach_handle(const pal::io_handle &h, pal::io_type t) {
 }
 
 void io_context::run() {
-    // while is running and stuff
-    while (true) {
-        int n =
-            epoll_wait(_epfd, _epoll_events.data(), _epoll_events.size(), -1);
+    int n = epoll_wait(_epfd, _epoll_events.data(), _epoll_events.size(), -1);
 
-        for (int i = 0; i < n; i++) {
-            auto &e = _epoll_events[i];
-            epoll_ctl(_epfd, EPOLL_CTL_DEL, e.data.fd, &e);
-            auto handle = io_handle(e.data.fd);
-            _notify_cb(handle);
-        }
+    for (int i = 0; i < n; i++) {
+        auto &e = _epoll_events[i];
+        const auto handle = io_handle(e.data.fd);
+        epoll_ctl(_epfd, EPOLL_CTL_DEL, e.data.fd, &e);
+        _notify_cb(handle);
     }
+}
+
+void io_context::signal_shutdown() {
+    int efd = eventfd(0, EFD_NONBLOCK);
+
+    struct epoll_event epoll_e = {0};
+    epoll_e.events = EPOLLIN;
+    epoll_e.data.fd = efd;
+
+    epoll_ctl(_epfd, EPOLL_CTL_ADD, efd, &epoll_e);
+
+    u64 n = 1;
+    write(efd, &n, sizeof(n));
 }
 
 } // namespace async::io::lin

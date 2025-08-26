@@ -355,6 +355,10 @@ template <typename ValueT> class midpoint_map {
         }
     }
 
+    std::size_t size() { return mp.size(); }
+
+    bool empty() { return mp.size() == 0; }
+
     // TODO: has to skip the midpoint
     // override iterator to give the correct key
     value_key_it value_key_begin() { return value_key_it(mp.begin()); }

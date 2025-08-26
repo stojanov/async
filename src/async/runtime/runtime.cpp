@@ -11,7 +11,11 @@ runtime &runtime::get() {
     return r;
 }
 
-void runtime::submit(coroutine_void_func &&func, int prio) {
+void runtime::submit_coro(coroutine_void_func &&func, int prio) {
+    _core.submit(std::move(func));
+}
+
+void runtime::submit_func(void_func &&func, int prio) {
     _core.submit(std::move(func));
 }
 

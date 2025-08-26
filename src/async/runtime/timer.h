@@ -22,6 +22,8 @@ class timer {
     void on_timeout(void_func &&callback);
     void release();
 
+    duration_t duration() { return _duration; }
+
     [[nodiscard]] bool elapsed() const { return _over_step; }
     [[nodiscard]] bool rolling() const { return _rolling; }
     [[nodiscard]] bool finished() const { return _finished; }

@@ -23,7 +23,7 @@ struct sleep_awaitable {
     cid_t _id;
 };
 
-inline static auto sleep(duration_t duration, int prio) {
+inline static auto sleep(duration_t duration, int prio = 1) {
     return async::sleep_awaitable{duration, prio};
 }
 

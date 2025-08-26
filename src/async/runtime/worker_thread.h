@@ -9,11 +9,8 @@ class worker_thread {
   public:
     worker_thread(runtime_core &core);
 
-    void signal_shutdown();
-    void work();
+    void activate_pending_work();
 
-  private:
-    s_ptr<std::atomic_bool> _running;
     runtime_core &_core;
 };
 } // namespace async::runtime

@@ -16,13 +16,14 @@ set(ENABLE_TESTING ON)
 set(ENABLE_ASAN ON)
 
 if (${ENABLE_ASAN})
+
+endif()
+
     add_compile_options(-fsanitize=address -fno-sanitize=alignment -fsanitize=enum
                         -fsanitize=leak)
 
     link_libraries(-fsanitize=address -fno-sanitize=alignment -fsanitize=enum
                    -fsanitize=leak)
-endif()
-
 
 link_libraries(spdlog::spdlog)
 
@@ -40,6 +41,7 @@ target_sources(${LIBRARY_NAME}
         ${LIB_DIR}/pch.h
 
         ${LIB_DIR}/runtime/coroutine.h
+        ${LIB_DIR}/runtime/coroutine.cpp
         ${LIB_DIR}/runtime/defines.h
         ${LIB_DIR}/runtime/io_context_thread.cpp
         ${LIB_DIR}/runtime/io_context_thread.h
@@ -55,6 +57,8 @@ target_sources(${LIBRARY_NAME}
         ${LIB_DIR}/runtime/timer.h
         ${LIB_DIR}/runtime/timer_thread.cpp
         ${LIB_DIR}/runtime/timer_thread.h
+        ${LIB_DIR}/runtime/prio_timer_thread.cpp
+        ${LIB_DIR}/runtime/prio_timer_thread.h
         ${LIB_DIR}/runtime/timer_thread_handler.cpp
         ${LIB_DIR}/runtime/timer_thread_handler.h
         ${LIB_DIR}/runtime/worker_thread.cpp

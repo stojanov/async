@@ -3,7 +3,6 @@
 #include <async/io/pal/io_handle.h>
 #include <async/io/pal/io_op.h>
 #include <async/pch.h>
-// #include <async/runtime/coroutine.h>
 #include <async/runtime/defines.h>
 #include <async/runtime/io_thread_handler.h>
 #include <async/runtime/runtime_core.h>
@@ -16,7 +15,12 @@ class runtime {
     runtime();
     static runtime &get();
 
-    void submit(coroutine_void_func &&task, int prio = 1);
+    // Submit a coroutine
+    void submit_coro(coroutine_void_func &&task, int prio = 1);
+
+    // Submit a pure task into the thread pool
+    void submit_func(void_func &&task, int prio = 1);
+
     void submit_resume(coro_handle h);
 
     bool submit_io_op(s_ptr<io::pal::io_op> op);
@@ -28,7 +32,7 @@ class runtime {
             closure_func(std::any_cast<T &>(state));
         };
 
-        submit(task, prio);
+        submit_coro(task, prio);
     }
 
     void shutdown();
@@ -55,7 +59,7 @@ class runtime {
 static inline auto &get() { return runtime::get(); }
 
 static inline void submit(coroutine_void_func &&task, int prio = 1) {
-    get().submit(std::move(task), prio);
+    get().submit_coro(std::move(task), prio);
 }
 
 } // namespace async::runtime

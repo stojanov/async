@@ -5,7 +5,7 @@
 namespace async::runtime {
 timer_thread::timer_thread(duration_t resolution) : _resolution(resolution) {}
 
-bool timer_thread::work() {
+bool timer_thread::run_timers() {
     const auto t = clk_t::now();
 
     for (auto it = _timers.begin(); it != _timers.end();) {

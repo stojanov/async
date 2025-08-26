@@ -2,15 +2,13 @@
 
 #include <async/defines.h>
 #include <async/pch.h>
-#include <async/runtime/coroutine.h>
 #include <async/runtime/defines.h>
 
 #include <condition_variable>
 #include <coroutine>
 #include <spdlog/spdlog.h>
+#include <thread>
 
-#include <iostream>
-#include <variant>
 namespace async::runtime {
 
 class runqueue {
@@ -20,7 +18,7 @@ class runqueue {
     runqueue();
 
     void print_stats() {
-        spdlog::warn("Runqueue destructor: resumes {}, tasks {}",
+        spdlog::warn("Runqueue destructor count items: resumes {}, tasks {}",
                      _pending_coro_resumes.size(), _pending_raw_tasks.size());
     }
 
@@ -63,18 +61,32 @@ class runqueue {
 
         coroutine coro;
 
-        if (std::holds_alternative<coroutine_any_func>(block.func)) {
-            auto func = std::get<coroutine_any_func>(block.func);
-            coro = func(entry->second.state);
-        } else {
-            auto func = std::get<coroutine_void_func>(block.func);
-            coro = func();
+        // TODO: possibility for this code to be moved elsewhere
+        // runqueue gets too cluttered, as it storing delagating and activating
+        // work/coroutines it gets confusing
+        auto visitor = var_overload{
+            [&](coroutine_any_func func) { coro = func(entry->second.state); },
+            [&](coroutine_void_func func) { coro = func(); },
+            // This will block unlike the coroutines, it's actual pure work old
+            // fashioned blocking work
+            [](void_func func) {
+                spdlog::warn("NORMAL FUNC!!!");
+                func();
+            },
+        };
+
+        std::visit(visitor, block.func);
+
+        // std::this_thread::sleep_for(std::chrono::milliseconds(200));
+
+        if (coro) {
+            spdlog::warn("Added the coro inside the entry");
+
+            std::coroutine_handle<promise> handle = coro;
+            handle.promise()._id = id;
+
+            entry->second.coro = coro;
         }
-
-        // later figure out a way to rely only on the hash/address of the handle
-        coro._id = id;
-
-        entry->second.coro = coro;
     }
 
     void release() {
@@ -89,8 +101,9 @@ class runqueue {
         for (auto i = _coroutines.begin(); i != _coroutines.end();) {
             // std::cout << "====\t ==== DESTROYING " << i->id << "\n";
             i->second.coro.destroy();
-            i = _coroutines.erase(i);
         }
+
+        _coroutines.clear();
     }
 
   private:

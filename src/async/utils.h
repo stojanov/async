@@ -10,7 +10,7 @@ namespace async {
 
 template <std::integral T> class id_gen {
   public:
-    [[nodiscard]] T get() {
+    [[nodiscard]] inline T get() {
         {
             std::lock_guard lck(_available_m);
             if (!_available.empty()) {
