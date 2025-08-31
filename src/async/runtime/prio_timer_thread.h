@@ -8,7 +8,21 @@ namespace async::runtime {
 
 class prio_timer_thread {
     struct timer_block {
+        // for future, is a struct
         void_func timeout;
+    };
+
+    struct prio_timer {
+        clk_t::time_point fire_point;
+        u32 id;
+
+        bool operator<(const prio_timer &other) const {
+            return fire_point < other.fire_point;
+        }
+
+        bool operator>(const prio_timer &other) const {
+            return fire_point > other.fire_point;
+        }
     };
 
   public:
@@ -20,7 +34,7 @@ class prio_timer_thread {
         {
             std::lock_guard _lck(_timerM);
             _block_map.insert(std::pair(id, timer_block{on_timeout}));
-            _prio_map.insert(std::pair(fire_point, id));
+            _prio_queue.emplace(fire_point, id);
         }
         _timerCV.notify_all();
 
@@ -45,12 +59,20 @@ class prio_timer_thread {
 
     void run_timers();
 
+    void print_top_timer() {
+        auto &t = _prio_queue.top();
+        spdlog::warn("top timer id {}", t.id);
+    }
+
   private:
     id_gen<u32> _ids;
     std::atomic_bool _running{true};
     std::mutex _timerM;
     std::condition_variable _timerCV;
-    std::map<clk_t::time_point, u32> _prio_map;
     std::map<u32, timer_block> _block_map;
+    // maybe vector isn't best
+    std::priority_queue<prio_timer, std::vector<prio_timer>,
+                        std::greater<prio_timer>>
+        _prio_queue;
 };
 } // namespace async::runtime
