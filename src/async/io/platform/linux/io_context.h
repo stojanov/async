@@ -5,6 +5,7 @@
 #include <sys/epoll.h>
 
 namespace async::io::lin {
+
 class io_context : public pal::io_context {
   public:
     io_context(int event_count);
@@ -20,7 +21,6 @@ class io_context : public pal::io_context {
 
   private:
     pal::io_context::notify_callback _notify_cb;
-    std::atomic_bool _running;
     std::vector<epoll_event> _epoll_events;
     int _epfd;
 };

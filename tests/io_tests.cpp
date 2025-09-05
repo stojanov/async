@@ -12,11 +12,14 @@ class IOTests : public Test {
     void TearDown() override {}
 
   protected:
-    async::runtime::runtime &rtime() { return async::runtime::runtime::get(); }
+    async::internal::runtime &rtime() {
+        return async::internal::runtime::inst();
+    }
 };
 
 TEST_F(IOTests, ReadSTDIN) {
-    rtime().submit_coro([]() -> async::runtime::coroutine {
+
+    rtime().submit_coro([]() -> async::coroutine {
         auto fd = async::io::io_handle(STDIN_FILENO);
 
         std::vector<std::byte> vector;

@@ -2,14 +2,14 @@
 
 #include <async/defines.h>
 #include <async/pch.h>
+#include <async/runtime/coroutine.h>
 #include <async/runtime/defines.h>
 
 #include <condition_variable>
 #include <coroutine>
 #include <spdlog/spdlog.h>
-#include <thread>
 
-namespace async::runtime {
+namespace async::internal {
 
 class runqueue {
   public:
@@ -48,15 +48,15 @@ class runqueue {
         {
             std::lock_guard lck(_coroM);
 
-            auto lower_entry = _coroutines.insert(
+            auto coro_entry = _coroutines.insert(
                 std::pair{id, coro_block{id, nullptr, block.state}});
 
-            if (!lower_entry.second) {
+            if (!coro_entry.second) {
                 // TODO: handle
                 return;
             }
 
-            entry = lower_entry.first;
+            entry = coro_entry.first;
         }
 
         coroutine coro;
@@ -64,7 +64,7 @@ class runqueue {
         // TODO: possibility for this code to be moved elsewhere
         // runqueue gets too cluttered, as it storing delagating and activating
         // work/coroutines it gets confusing
-        auto visitor = var_overload{
+        const auto visitor = var_overload{
             [&](coroutine_any_func func) { coro = func(entry->second.state); },
             [&](coroutine_void_func func) { coro = func(); },
             // This will block unlike the coroutines, it's actual pure work old
@@ -77,8 +77,6 @@ class runqueue {
 
         std::visit(visitor, block.func);
 
-        // std::this_thread::sleep_for(std::chrono::milliseconds(200));
-
         if (coro) {
             spdlog::warn("Added the coro inside the entry");
 
@@ -86,6 +84,9 @@ class runqueue {
             handle.promise()._id = id;
 
             entry->second.coro = coro;
+            coro.resume();
+        } else {
+            _coroutines.erase(entry);
         }
     }
 
@@ -106,19 +107,15 @@ class runqueue {
         _coroutines.clear();
     }
 
-  private:
     void clean_coro(cid_t id) {
         std::lock_guard lck(_coroM);
-        spdlog::warn("Cleaning up coro id: {}, coro size: {}", id,
-                     _coroutines.size());
 
         if (auto i = _coroutines.find(id); i != std::end(_coroutines)) {
-            i->second.coro.destroy();
             _coroutines.erase(i);
-            spdlog::warn("CLEARING CORO {}", id);
         }
     }
 
+  private:
     std::mutex _wait_task_M;
     std::condition_variable _wait_task_signal;
 
@@ -135,11 +132,10 @@ class runqueue {
     // TODO: optimize, fenwick tree, binary indexed tree, segment tree
     std::mutex _coroM;
     std::map<cid_t, coro_block> _coroutines;
-
-    std::mutex _liveM;
-    std::deque<coro_handle> _live_coro;
+    // VERY STUPID, find a way for this to be better
+    // std::map<coro_handle, cid_t> _corohandle_cid;
 
     id_gen<cid_t> _coro_id;
     std::atomic_bool _is_dropped{false};
 };
-} // namespace async::runtime
+} // namespace async::internal

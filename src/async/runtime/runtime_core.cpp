@@ -4,7 +4,7 @@
 #include <async/runtime/worker_thread.h>
 #include <coroutine>
 
-namespace async::runtime {
+namespace async::internal {
 runtime_core::runtime_core() : _thread_work_visitor(*this) {}
 
 void runtime_core::spawn(std::size_t N) {
@@ -65,7 +65,7 @@ void runtime_core::shutdown() {
     const auto visitor = var_overload{
         [](worker_thread &thread) {},
         [](timer_thread &thread) { thread.cleanup(); },
-        [](io_context_thread &thread) { thread.shutdown(); },
+        [](io_context_thread &thread) { thread.signal_shutdown(); },
     };
 
     std::ranges::for_each(_threads, [&visitor](thread_block &block) {
@@ -78,4 +78,4 @@ void runtime_core::shutdown() {
 
     _threads.clear();
 }
-} // namespace async::runtime
+} // namespace async::internal

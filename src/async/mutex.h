@@ -6,6 +6,8 @@
 
 namespace async {
 
+namespace internal {
+
 struct mutex_core {
     bool is_free() {
         std::lock_guard lck(_M);
@@ -21,7 +23,7 @@ struct mutex_core {
         std::lock_guard lck(_M);
         auto first = _awaiting.front();
         _awaiting.pop_front();
-        runtime::runtime::get().submit_resume(first);
+        internal::runtime::inst().submit_resume(first);
     }
 
     // TODO: optimize
@@ -42,12 +44,14 @@ struct mutex_awaitable_t {
     mutex_core &_core;
 };
 
+} // namespace internal
+
 struct mutex {
-    mutex_awaitable_t lock() { return {_core}; }
+    internal::mutex_awaitable_t lock() { return {_core}; }
 
     void unlock() { _core.unlock(); }
 
   private:
-    mutex_core _core;
+    internal::mutex_core _core;
 };
 } // namespace async

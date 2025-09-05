@@ -5,7 +5,7 @@
 
 namespace async {
 
-namespace detail {
+namespace internal {
 
 struct signal_core {
   public:
@@ -15,6 +15,19 @@ struct signal_core {
     };
 
     void add_waiting(const waiting_block &block) { _waiting.push_back(block); }
+
+    void notify_all() {
+        for (auto it = _waiting.begin(); it != _waiting.end();) {
+            auto &block = *it;
+
+            if (block.predicate()) {
+                internal::runtime::inst().submit_resume(block.handle);
+                it = _waiting.erase(it);
+            } else {
+                it++;
+            }
+        }
+    }
 
     // TODO: optimize
     std::list<waiting_block> _waiting;
@@ -39,26 +52,18 @@ struct pred_awaitable {
     const predicate_func _predicate;
     signal_core &_core;
 };
-} // namespace detail
+} // namespace internal
 
-struct signal : private detail::signal_core {
+struct signal {
     signal() {}
 
-    detail::pred_awaitable wait_if(predicate_func &&func) {
-        return {*this, std::move(func)};
+    internal::pred_awaitable wait_if(predicate_func &&func) {
+        return {_core, std::move(func)};
     };
 
-    void notify_all() {
-        for (auto it = _waiting.begin(); it != _waiting.end();) {
-            auto &block = *it;
+    void notify_all() { _core.notify_all(); }
 
-            if (block.predicate()) {
-                runtime::runtime::get().submit_resume(block.handle);
-                it = _waiting.erase(it);
-            } else {
-                it++;
-            }
-        }
-    }
+  private:
+    internal::signal_core _core;
 };
 } // namespace async

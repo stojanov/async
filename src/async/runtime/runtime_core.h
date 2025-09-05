@@ -9,7 +9,7 @@
 #include <async/runtime/worker_thread.h>
 #include <coroutine>
 
-namespace async::runtime {
+namespace async::internal {
 struct runtime_core {
     using thread_var_t =
         std::variant<timer_thread, worker_thread, io_context_thread>;
@@ -96,7 +96,10 @@ struct runtime_core {
 
     void submit_resume(std::coroutine_handle<> h);
 
-    void remove_coro(cid_t);
+    void remove_coro(cid_t id) {
+        spdlog::warn("REMOVE CORO");
+        _runqueue.clean_coro(id);
+    }
 
     void spawn_new();
     void shutdown();
@@ -115,4 +118,4 @@ struct runtime_core {
     // TODO: think about each thread to have it's own queue
     runqueue _runqueue;
 };
-} // namespace async::runtime
+} // namespace async::internal

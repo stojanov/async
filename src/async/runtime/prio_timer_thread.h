@@ -4,7 +4,7 @@
 #include <async/defines.h>
 #include <async/runtime/timer.h>
 
-namespace async::runtime {
+namespace async::internal {
 
 class prio_timer_thread {
     struct timer_block {
@@ -75,4 +75,4 @@ class prio_timer_thread {
                         std::greater<prio_timer>>
         _prio_queue;
 };
-} // namespace async::runtime
+} // namespace async::internal

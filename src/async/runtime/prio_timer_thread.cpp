@@ -1,6 +1,6 @@
 #include <async/runtime/prio_timer_thread.h>
 
-namespace async::runtime {
+namespace async::internal {
 void prio_timer_thread::run_timers() {
     while (_running) {
         std::unique_lock lck(_timerM);
@@ -11,7 +11,7 @@ void prio_timer_thread::run_timers() {
         }
 
         // latest as in latest to fire
-        auto latest_entry = _prio_queue.top();
+        const auto &latest_entry = _prio_queue.top();
 
         if (latest_entry.fire_point > clk_t::now()) {
             if (auto i = _block_map.find(latest_entry.id);
@@ -29,4 +29,4 @@ void prio_timer_thread::run_timers() {
         }
     }
 }
-} // namespace async::runtime
+} // namespace async::internal

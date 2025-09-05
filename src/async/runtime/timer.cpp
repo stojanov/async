@@ -1,7 +1,7 @@
 #include <async/runtime/timer.h>
 #include <chrono>
 
-namespace async::runtime {
+namespace async::internal {
 timer::timer(duration_t s, bool rolling, void_func on_timeout)
     : _duration(std::chrono::duration_cast<std::chrono::milliseconds>(s)),
       _on_timeout(on_timeout) {}
@@ -31,4 +31,4 @@ void timer::tick() {
         }
     }
 }
-} // namespace async::runtime
+} // namespace async::internal

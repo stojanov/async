@@ -10,9 +10,7 @@
 #include <async/pch.h>
 #include <optional>
 
-namespace async {
-
-namespace detail {
+namespace async::internal {
 
 static inline u64 midpoint_create_key(u32 key, u32 ready) {
     if (ready) {
@@ -69,8 +67,6 @@ struct midpoint_sorter_less {
     }
 };
 
-} // namespace detail
-
 // TODO: extend, generic ?
 template <typename ValueT> class midpoint_map {
   private:
@@ -81,7 +77,7 @@ template <typename ValueT> class midpoint_map {
     // way, this would be the one that provides the range addition, if every
     // ready factor unique double space complexity, also maximum range of ready
     // factor is smaller
-    using mp_t = std::map<u64, ValueT, detail::midpoint_sorter_less>;
+    using mp_t = std::map<u64, ValueT, midpoint_sorter_less>;
     using it_t = mp_t::iterator;
 
   public:
@@ -154,15 +150,14 @@ template <typename ValueT> class midpoint_map {
     midpoint_map() { mp[0] = ValueT(); }
 
     it_t add(u32 key, const ValueT &m, u32 factor) {
-        auto iter =
-            mp.insert(std::pair(detail::midpoint_create_key(key, factor), m));
+        auto iter = mp.insert(std::pair(midpoint_create_key(key, factor), m));
 
         return iter.first;
     }
 
     it_t add(u32 key, const ValueT &&m, u32 factor) {
         auto iter = mp.insert(
-            std::pair(detail::midpoint_create_key(key, factor), std::move(m)));
+            std::pair(midpoint_create_key(key, factor), std::move(m)));
 
         return iter.first;
     }
@@ -191,8 +186,8 @@ template <typename ValueT> class midpoint_map {
 
         auto [id, _] = unpack_u32(i->first);
 
-        mp.insert(std::pair(detail::midpoint_create_key(id, prio),
-                            std::move(i->second)));
+        mp.insert(
+            std::pair(midpoint_create_key(id, prio), std::move(i->second)));
         mp.erase(i);
 
         return true;
@@ -377,4 +372,4 @@ template <typename ValueT> class midpoint_map {
     mp_t mp;
 };
 
-} // namespace async
+} // namespace async::internal

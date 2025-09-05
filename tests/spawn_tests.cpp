@@ -1,3 +1,4 @@
+#include "async/defines.h"
 #include <async/channel.h>
 #include <async/runtime/coroutine.h>
 #include <async/runtime/runtime.h>
@@ -20,25 +21,35 @@
 using namespace testing;
 
 class SpawnTests : public testing::Test {
-    void SetUp() override { async::runtime::runtime::get(); }
+    void SetUp() override { rtime().inst(); }
 
     // TODO: debug crash on shutdown
     /*void TearDown() override { async::runtime::runtime::get().shutdown(); }*/
 
   protected:
-    async::runtime::runtime &rtime() { return async::runtime::runtime::get(); }
+    async::internal::runtime &rtime() {
+        return async::internal::runtime::inst();
+    }
 };
 
 TEST_F(SpawnTests, SpawnCoroutine) {
     std::cout << "RAN\n";
 
-    rtime().submit_coro([]() -> async::runtime::coroutine {
+    auto start = async::clk_t::now();
+
+    rtime().submit_coro([]() -> async::coroutine {
         // co_await async::poll();
+        std::cout << "THIS STARTED\n";
         co_await async::sleep(std::chrono::milliseconds(1000));
         std::cout << "THIS FINISHED\n";
     });
 
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    auto end = async::clk_t::now();
+    auto dt = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+
+    spdlog::warn("SUBMIT TOOK {} nano sex", dt.count());
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
 }
 
 // TEST_F(SpawnTests, SignalTests) {

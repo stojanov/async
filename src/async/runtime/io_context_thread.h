@@ -1,13 +1,13 @@
 #pragma once
 
-#include "async/io/pal/io_context.h"
-#include "async/io/pal/io_handle.h"
 #include <async/io/base.h>
+#include <async/io/pal/io_context.h>
+#include <async/io/pal/io_handle.h>
 #include <async/io/pal/io_op.h>
 #include <async/io/pal/io_type.h>
 #include <async/pch.h>
 
-namespace async::runtime {
+namespace async::internal {
 class io_context_thread {
   public:
     io_context_thread(s_ptr<io::pal::io_context> io_ctx,
@@ -17,9 +17,9 @@ class io_context_thread {
 
     void work();
 
-    void shutdown() {};
+    void signal_shutdown();
 
   private:
     s_ptr<io::pal::io_context> _io_context;
 };
-} // namespace async::runtime
+} // namespace async::internal

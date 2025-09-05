@@ -3,7 +3,7 @@
 #include <async/pch.h>
 #include <async/runtime/coroutine.h>
 
-namespace async::runtime {
+namespace async::internal {
 
 struct task_block {
     std::variant<coroutine_void_func, coroutine_any_func, void_func> func;
@@ -24,4 +24,4 @@ template <typename T> struct coro_block_closure {
     T closure;
 };
 
-} // namespace async::runtime
+} // namespace async::internal

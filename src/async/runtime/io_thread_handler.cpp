@@ -2,7 +2,7 @@
 #include <async/runtime/io_thread_handler.h>
 #include <memory>
 
-namespace async::runtime {
+namespace async::internal {
 io_thread_handler::io_thread_handler(runtime_core &core) : _core(core) {}
 
 // TODO: potential problems with this
@@ -50,4 +50,4 @@ void io_thread_handler::notify_io_ready(const io::pal::io_handle &handle) {
     }
 }
 
-} // namespace async::runtime
+} // namespace async::internal

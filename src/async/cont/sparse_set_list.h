@@ -4,7 +4,8 @@
 #include <async/cont/sparse_set.h>
 #include <async/pch.h>
 #include <cwchar>
-namespace async {
+
+namespace async::internal {
 
 template <typename T, typename H_f = std::hash<T>> class sparse_set_list {
     static constexpr auto hasher = H_f{};
@@ -62,7 +63,7 @@ template <typename T, typename H_f = std::hash<T>> class sparse_set_list {
   private:
     using set_ptr = u_ptr<associative_sparse_set<T, H_f>>;
 
-    async::midpoint_map<set_ptr> _mp;
+    midpoint_map<set_ptr> _mp;
     // TODO: bridge in one ^
     //
     // lot of cid_t(unique, block size N) map to a single u32
@@ -71,4 +72,4 @@ template <typename T, typename H_f = std::hash<T>> class sparse_set_list {
     std::unordered_map<cid_t, u32> _key_relation;
 };
 
-} // namespace async
+} // namespace async::internal

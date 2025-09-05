@@ -6,7 +6,7 @@
 
 #include <async/defines.h>
 
-namespace async {
+namespace async::internal {
 
 template <std::integral T> class id_gen {
   public:
@@ -90,4 +90,4 @@ template <typename R, typename V>
 concept range_of =
     std::ranges::range<R> && std::same_as<std::ranges::range_value_t<R>, V>;
 
-} // namespace async
+} // namespace async::internal

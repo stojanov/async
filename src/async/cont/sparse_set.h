@@ -3,7 +3,7 @@
 #include <async/pch.h>
 #include <iostream>
 
-namespace async {
+namespace async::internal {
 
 // sync is expected to be handled by the caller
 // this of another use case for when we allow reallocation/resize
@@ -150,4 +150,4 @@ template <typename K, typename V> class associative_sparse_set {
     size_t _current{0};
 };
 
-} // namespace async
+} // namespace async::internal

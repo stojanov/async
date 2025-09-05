@@ -15,13 +15,15 @@ class PollTests : public Test {
     void TearDown() override {}
 
   protected:
-    async::runtime::runtime &rtime() { return async::runtime::runtime::get(); }
+    async::internal::runtime &rtime() {
+        return async::internal::runtime::inst();
+    }
 };
 
 TEST_F(PollTests, PerfTest) {
-    async::clk_t::duration dur;
-    async::clk_t::duration max;
-    async::clk_t::duration min;
+    async::duration_t dur;
+    async::duration_t max;
+    async::duration_t min;
 
     auto last = async::clk_t::now();
 
@@ -31,7 +33,7 @@ TEST_F(PollTests, PerfTest) {
     int coro_count = 4;
 
     for (int i = 0; i < coro_count; i++) {
-        rtime().submit_coro([&] -> async::runtime::coroutine {
+        rtime().submit_coro([&] -> async::coroutine {
             auto &co = c;
             auto &l = last;
             auto &d = dur;

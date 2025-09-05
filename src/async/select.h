@@ -1,11 +1,11 @@
 #pragma once
 
-#include <async/cont/midpoint_map.h>
-#include <async/defines.h>
-#include <async/runtime/runtime.h>
 #include <algorithm>
 #include <async/channel.h>
+#include <async/cont/midpoint_map.h>
+#include <async/defines.h>
 #include <async/pch.h>
+#include <async/runtime/runtime.h>
 #include <async/runtime/runtime_core.h>
 
 #include <iostream>
@@ -13,16 +13,15 @@
 
 namespace async {
 
-namespace detail {
+namespace internal {
 struct channel_wrapper {
-    s_ptr<channel_base> channel;
+    s_ptr<internal::channel_base> channel;
     value_state state;
 };
 
 struct channel_sort {
     u32 prio(const channel_wrapper &ch) { return static_cast<u32>(ch.state); }
 };
-}; // namespace detail
 
 template <typename... Args> struct select_core {
     using core_t = select_core<Args...>;
@@ -151,7 +150,7 @@ template <typename... Args> struct select_core {
         }
 
         if (h) {
-            runtime::runtime::get().submit_resume(h);
+            internal::runtime::runtime::inst().submit_resume(h);
             return true;
         }
 
@@ -177,14 +176,13 @@ template <typename... Args> struct select_core {
             _waiting.push_back(block);
         }
 
-        runtime::runtime::get().attach_timer(duration, false, [block] {
-            bool is_handle_valid = block.h;
-
-            if (!is_handle_valid || block.awaitable._value) {
+        internal::runtime::inst().attach_timer(duration, false, [block] {
+            // TODO: can't rely on handle not beeing valid
+            if (!block.h || block.awaitable._value) {
                 return;
             }
 
-            runtime::runtime::get().submit_resume(block.h);
+            internal::runtime::inst().submit_resume(block.h);
         });
     };
 
@@ -199,14 +197,15 @@ template <typename... Args> struct select_core {
     // std::vector<s_ptr<channel_base>> _channels;
     std::deque<std::any> _value_queue;
 
-    midpoint_map<s_ptr<channel_base>> _chnl;
+    midpoint_map<s_ptr<internal::channel_base>> _chnl;
 };
+}; // namespace internal
 
 // TODO: invalid ref, invalid pointers
 // get the types from the channels, store only the channel base or thye observer
 template <typename... ChannelTypes> struct co_select {
     using variant_type = std::variant<ChannelTypes...>;
-    using core_t = select_core<ChannelTypes...>;
+    using core_t = internal::select_core<ChannelTypes...>;
     using select_awaitable_t = core_t::select_awaitable;
 
     co_select(std::shared_ptr<channel<ChannelTypes>>... channels) {

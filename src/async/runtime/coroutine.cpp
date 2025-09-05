@@ -1,8 +1,16 @@
 #include <async/runtime/coroutine.h>
+#include <async/runtime/runtime.h>
 #include <async/runtime/runtime_core.h>
 
-namespace async::runtime {
+namespace async {
 
-// std::suspend_never promise::final_suspend() noexcept { return {}; }
+std::suspend_never promise::final_suspend() noexcept {
 
-} // namespace async::runtime
+    spdlog::warn("FINAL SUSPEND");
+
+    internal::runtime::inst().remove_coro(_id);
+
+    return {};
+}
+
+} // namespace async

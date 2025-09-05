@@ -1,6 +1,5 @@
 #pragma once
 
-#include <algorithm>
 #include <async/defines.h>
 #include <async/pch.h>
 #include <async/runtime/runtime.h>
@@ -8,6 +7,8 @@
 #include <random>
 
 namespace async {
+
+namespace internal {
 
 template <typename T> struct channel_core {
   public:
@@ -112,7 +113,7 @@ template <typename T> struct channel_core {
 
                 first.awaitable->_value = value;
 
-                runtime::runtime::get().submit_resume(first.handle);
+                internal::runtime::inst().submit_resume(first.handle);
             }
 
             return;
@@ -128,7 +129,7 @@ template <typename T> struct channel_core {
 
             first.awaitable->_value = value;
 
-            runtime::runtime::get().submit_resume(first.handle);
+            internal::runtime::inst().submit_resume(first.handle);
         }
     }
 
@@ -212,7 +213,9 @@ struct channel_base {
     static inline std::atomic<cid_t> _s_id_counter{1};
 };
 
-template <typename T> struct channel : public channel_base {
+} // namespace internal
+
+template <typename T> struct channel : public internal::channel_base {
     using value_type = T;
 
     channel() : _core(_s_id_counter.fetch_add(1)) {}
@@ -223,7 +226,7 @@ template <typename T> struct channel : public channel_base {
     void push(const T &value) { _core.push(value); }
 
     // fetch await
-    channel_core<T>::chan_awaitable fetch() { return _core.fetch(); }
+    internal::channel_core<T>::chan_awaitable fetch() { return _core.fetch(); }
 
     std::optional<std::any> try_fetch() final {
         auto v = _core.try_fetch();
@@ -241,12 +244,12 @@ template <typename T> struct channel : public channel_base {
   private:
     std::optional<std::any> try_fetch_non_notify(cid_t non_notify_id) {}
 
-    void add_obeservable(cid_t id, value_state_func &&func) final {
+    void add_obeservable(cid_t id, internal::value_state_func &&func) final {
         _core.add_obeservable(id, func);
     }
 
   private:
-    channel_core<T> _core;
+    internal::channel_core<T> _core;
 };
 
 } // namespace async

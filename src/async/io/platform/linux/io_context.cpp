@@ -6,7 +6,7 @@
 #include <sys/eventfd.h>
 
 namespace async::io::lin {
-io_context::io_context(int event_count) : _running{true} {
+io_context::io_context(int event_count) {
     _epoll_events.resize(event_count);
 
     _epfd = epoll_create1(0);
@@ -66,7 +66,7 @@ void io_context::signal_shutdown() {
 
     epoll_ctl(_epfd, EPOLL_CTL_ADD, efd, &epoll_e);
 
-    u64 n = 1;
+    internal::u64 n = 1;
     write(efd, &n, sizeof(n));
 }
 

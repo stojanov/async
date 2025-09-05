@@ -40,7 +40,7 @@ class SparseSetTests : public testing::Test {
     //     }
     // }
 
-    async::associative_sparse_set<TestValue, std::size_t> *_set;
+    async::internal::associative_sparse_set<TestValue, std::size_t> *_set;
 };
 
 TEST_F(SparseSetTests, EnsureITISDelet) {

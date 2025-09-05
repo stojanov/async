@@ -2,7 +2,7 @@
 #include <async/runtime/timer_thread.h>
 #include <chrono>
 
-namespace async::runtime {
+namespace async::internal {
 timer_thread::timer_thread(duration_t resolution) : _resolution(resolution) {}
 
 bool timer_thread::run_timers() {
@@ -31,4 +31,4 @@ bool timer_thread::run_timers() {
 
     return true;
 }
-} // namespace async::runtime
+} // namespace async::internal

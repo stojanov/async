@@ -6,7 +6,7 @@
 using namespace testing;
 using namespace async;
 
-using mp_t = interval_map<u64, std::string>;
+using mp_t = async::internal::interval_map<std::uint64_t, std::string>;
 
 class IntervalMapTests : public testing::Test {
     void SetUp() override { _mp = std::make_shared<mp_t>(); }
@@ -14,7 +14,7 @@ class IntervalMapTests : public testing::Test {
     void TearDown() override { _mp.reset(); }
 
   protected:
-    s_ptr<mp_t> _mp;
+    std::shared_ptr<mp_t> _mp;
 };
 
 TEST_F(IntervalMapTests, GenericTest) {}

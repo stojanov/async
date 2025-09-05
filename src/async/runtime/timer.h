@@ -1,9 +1,9 @@
 #pragma once
 
-#include "async/defines.h"
+#include <async/defines.h>
 #include <async/pch.h>
 
-namespace async::runtime {
+namespace async::internal {
 
 class timer_thread;
 
@@ -42,4 +42,4 @@ class timer {
     bool _over_step{false};
     bool _finished{false};
 };
-} // namespace async::runtime
+} // namespace async::internal

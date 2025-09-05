@@ -7,7 +7,7 @@
 
 #include <iostream>
 
-namespace async::runtime {
+namespace async::internal {
 class timer_thread {
   private:
     struct timer_block {
@@ -77,4 +77,4 @@ class timer_thread {
 };
 
 using p_timer_thread = std::unique_ptr<timer_thread>;
-} // namespace async::runtime
+} // namespace async::internal

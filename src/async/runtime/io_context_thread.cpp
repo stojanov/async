@@ -2,7 +2,7 @@
 #include "async/io/pal/io_handle.h"
 #include <async/runtime/io_context_thread.h>
 
-namespace async::runtime {
+namespace async::internal {
 
 io_context_thread::io_context_thread(
     s_ptr<io::pal::io_context> io_ctx,
@@ -18,4 +18,6 @@ void io_context_thread::attach_handle(io::pal::io_handle &handle,
 
 void io_context_thread::work() { _io_context->run(); }
 
-} // namespace async::runtime
+void io_context_thread::signal_shutdown() { _io_context->signal_shutdown(); }
+
+} // namespace async::internal

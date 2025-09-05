@@ -2,7 +2,7 @@
 
 #include <async/pch.h>
 
-namespace async::runtime {
+namespace async::internal {
 class runtime_core;
 
 class worker_thread {
@@ -13,4 +13,4 @@ class worker_thread {
 
     runtime_core &_core;
 };
-} // namespace async::runtime
+} // namespace async::internal

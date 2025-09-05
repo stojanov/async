@@ -7,6 +7,9 @@
 #include <thread>
 
 namespace async {
+
+namespace internal {
+
 // TODO: THINK ABOUT LIFETIME, OWNERSHIP
 class read_core : public io::read_op {
   public:
@@ -17,7 +20,7 @@ class read_core : public io::read_op {
     void do_op() override {
         auto id = std::hash<std::thread::id>{}(std::this_thread::get_id());
         spdlog::warn("RESUMED {}", id);
-        runtime::runtime::get().submit_resume(_waiting);
+        internal::runtime::inst().submit_resume(_waiting);
     }
 
   private:
@@ -37,7 +40,7 @@ struct read_awaitable_t {
         auto id = std::hash<std::thread::id>{}(std::this_thread::get_id());
         spdlog::warn("SUSPENDED {}", id);
         _core->add_waiting(h);
-        runtime::runtime::get().submit_io_op(_core);
+        internal::runtime::inst().submit_io_op(_core);
     }
 
     std::size_t await_resume() {
@@ -51,10 +54,11 @@ struct read_awaitable_t {
     bytespan _span;
     std::size_t _nbytes;
 };
+} // namespace internal
 
-inline read_awaitable_t read(io::pal::io_handle &handle, bytespan span,
-                             std::size_t nbytes) {
-    return read_awaitable_t{handle, span, nbytes};
+inline internal::read_awaitable_t read(io::pal::io_handle &handle,
+                                       bytespan span, std::size_t nbytes) {
+    return {handle, span, nbytes};
 }
 
 } // namespace async

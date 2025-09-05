@@ -7,7 +7,8 @@
 #include <spdlog/spdlog.h>
 
 namespace async {
-namespace detail {
+
+namespace internal {
 
 struct poll_awaitable {
     poll_awaitable(int prio) : _prio(prio) {};
@@ -15,7 +16,7 @@ struct poll_awaitable {
     bool await_ready() { return false; }
 
     void await_suspend(std::coroutine_handle<> h) {
-        runtime::get().submit_resume(h);
+        runtime::inst().submit_resume(h);
     }
 
     bool await_resume() { return true; }
@@ -29,8 +30,8 @@ struct timed_poll_awaitable {
     bool await_ready() { return false; }
 
     void await_suspend(std::coroutine_handle<> h) {
-        runtime::get().attach_timer(
-            _dur, false, [this, h]() { runtime::get().submit_resume(h); });
+        runtime::inst().attach_timer(
+            _dur, false, [this, h]() { runtime::inst().submit_resume(h); });
     }
 
     bool await_resume() { return true; }
@@ -38,10 +39,11 @@ struct timed_poll_awaitable {
     duration_t _dur;
 };
 
-} // namespace detail
+} // namespace internal
 
-inline static auto poll(int prio = 0) { return detail::poll_awaitable{prio}; }
+inline static auto poll(int prio = 0) { return internal::poll_awaitable{prio}; }
+
 inline static auto timed_poll(duration_t duration) {
-    return detail::timed_poll_awaitable{duration};
+    return internal::timed_poll_awaitable{duration};
 }
 } // namespace async

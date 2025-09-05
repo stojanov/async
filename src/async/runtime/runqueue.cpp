@@ -2,7 +2,7 @@
 #include <async/runtime/runqueue.h>
 #include <coroutine>
 
-namespace async::runtime {
+namespace async::internal {
 runqueue::runqueue() {}
 
 void runqueue::push_pending_raw_task(task_block &block) {
@@ -113,4 +113,4 @@ task_block runqueue::peek_pop_pending_task() {
     return block;
 }
 
-} // namespace async::runtime
+} // namespace async::internal

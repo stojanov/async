@@ -4,6 +4,9 @@
 #include <async/runtime/runtime.h>
 
 namespace async {
+
+namespace internal {
+
 struct waitgroup_core {
     waitgroup_core(std::size_t N) : _n(N) {}
 
@@ -23,7 +26,7 @@ struct waitgroup_core {
             std::lock_guard lck(_waitingM);
             auto i = _waiting.begin();
             while (true) {
-                runtime::runtime::get().submit_resume(*i);
+                internal::runtime::inst().submit_resume(*i);
                 i = _waiting.erase(i);
             }
         }
@@ -61,6 +64,7 @@ struct waitgroup_awaitable_t {
   private:
     waitgroup_core &_core;
 };
+} // namespace internal
 
 struct waitgroup {
     waitgroup(std::size_t N) : _core(N) {}
@@ -70,9 +74,9 @@ struct waitgroup {
     // Thread carefully with this method
     void reset() { _core.reset(); }
 
-    waitgroup_awaitable_t wait() { return {_core}; }
+    internal::waitgroup_awaitable_t wait() { return {_core}; }
 
   private:
-    waitgroup_core _core;
+    internal::waitgroup_core _core;
 };
 } // namespace async

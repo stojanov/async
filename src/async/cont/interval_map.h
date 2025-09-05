@@ -6,9 +6,7 @@
 #include <iterator>
 #include <spdlog/spdlog.h>
 
-namespace async {
-
-namespace detail {};
+namespace async::internal {
 
 // V value should have equals operator, stongly encoraged for V to be a pointer
 // untill i can fix it
@@ -199,4 +197,4 @@ template <std::integral K, typename V> class interval_map {
   private:
     mp_t _mp_start;
 };
-} // namespace async
+} // namespace async::internal

@@ -1,7 +1,7 @@
 #include <async/runtime/timer_thread_handler.h>
 #include <async/utils.h>
 
-namespace async::runtime {
+namespace async::internal {
 void timer_thread_handler::remove_timer(cid_t id) {
     auto [th_block_id, timer_id] = unpack_u32(id);
 
@@ -11,4 +11,4 @@ void timer_thread_handler::remove_timer(cid_t id) {
         th.remove_timer(timer_id);
     }
 }
-} // namespace async::runtime
+} // namespace async::internal

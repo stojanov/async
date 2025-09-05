@@ -12,7 +12,7 @@ class PrioTimerTests : public Test {
     void TearDown() override {}
 
   protected:
-    async::runtime::prio_timer_thread timer_th;
+    async::internal::prio_timer_thread timer_th;
 };
 
 TEST_F(PrioTimerTests, TopTimer) {
@@ -20,5 +20,6 @@ TEST_F(PrioTimerTests, TopTimer) {
     timer_th.add_timer(std::chrono::milliseconds(1000), false, []() {});
     timer_th.add_timer(std::chrono::milliseconds(2000), false, []() {});
 
+    // assert that lower time is top
     timer_th.print_top_timer();
 }

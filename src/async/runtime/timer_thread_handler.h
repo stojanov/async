@@ -4,7 +4,7 @@
 #include <async/runtime/runtime_core.h>
 #include <async/runtime/timer_thread.h>
 
-namespace async::runtime {
+namespace async::internal {
 class timer_thread_handler {
   public:
     timer_thread_handler(runtime_core &core) : _core(core) {}
@@ -52,4 +52,4 @@ class timer_thread_handler {
   private:
     runtime_core &_core;
 };
-} // namespace async::runtime
+} // namespace async::internal

@@ -6,7 +6,7 @@
 #include <async/runtime/io_context_thread.h>
 #include <async/runtime/runtime_core.h>
 
-namespace async::runtime {
+namespace async::internal {
 
 namespace detail {
 class io_op_hasher {
@@ -42,4 +42,4 @@ class io_thread_handler {
     runtime_core &_core;
     detail::io_op_hasher _op_hasher;
 };
-} // namespace async::runtime
+} // namespace async::internal
