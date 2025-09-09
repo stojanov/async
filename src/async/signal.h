@@ -14,9 +14,13 @@ struct signal_core {
         predicate_func predicate;
     };
 
-    void add_waiting(const waiting_block &block) { _waiting.push_back(block); }
+    void add_waiting(const waiting_block &block) {
+        std::lock_guard lck(_waitingM);
+        _waiting.push_back(block);
+    }
 
     void notify_all() {
+        std::lock_guard lck(_waitingM);
         for (auto it = _waiting.begin(); it != _waiting.end();) {
             auto &block = *it;
 
@@ -30,6 +34,7 @@ struct signal_core {
     }
 
     // TODO: optimize
+    std::mutex _waitingM;
     std::list<waiting_block> _waiting;
 };
 

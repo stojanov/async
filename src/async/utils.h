@@ -86,6 +86,15 @@ struct is_in_variant<T, std::variant<Ts...>>
 template <typename T, typename Variant>
 concept is_in_variant_v = is_in_variant<T, Variant>::value;
 
+template <typename, template <typename> typename>
+struct is_specialization_of : std::false_type {};
+
+template <typename T, template <typename> typename U>
+struct is_specialization_of<U<T>, U> : std::true_type {};
+
+template <typename T, template <typename> typename U>
+concept is_specialization_of_v = is_specialization_of<T, U>::value;
+
 template <typename R, typename V>
 concept range_of =
     std::ranges::range<R> && std::same_as<std::ranges::range_value_t<R>, V>;

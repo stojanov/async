@@ -1,6 +1,5 @@
 #pragma once
 
-#include "async/defines.h"
 #include <async/io/pal/io_handle.h>
 #include <async/io/pal/io_op.h>
 #include <async/pch.h>
@@ -8,7 +7,7 @@
 #include <async/runtime/io_thread_handler.h>
 #include <async/runtime/runtime_core.h>
 #include <async/runtime/timer_thread_handler.h>
-#include <sys/types.h>
+#include <async/utils.h>
 
 namespace async::internal {
 
@@ -17,27 +16,26 @@ class runtime {
     runtime();
     static runtime &inst();
 
-    // Submit a coroutine
-    void submit_coro(coroutine_void_func &&task, int prio = 1);
-
-    template <typename T>
-    void submit_closure(T &state, closure_task_func<T> &&closure_func,
-                        int prio = 1) {
-        const auto task = [closure_func](std::any &state) {
-            closure_func(std::any_cast<T &>(state));
-        };
-
-        _core.submit_closure(state, task);
-    }
-
     // Submit a pure task into the thread pool
     void submit_func(void_func &&task, int prio = 1);
+
+    template <typename F>
+        requires std::invocable<F> &&
+                 is_specialization_of_v<std::invoke_result_t<F>, coroutine>
+    void submit_coro(F &&func) {
+        using ret_type = std::invoke_result_t<F>;
+        using value_type = ret_type::value_type;
+        _core.submit_coro<value_type>(func);
+    }
+
+    // template <> void submit_result<void>(std::function<coroutine<>()> &&func)
+    // {}
 
     void submit_resume(coro_handle h);
 
     bool submit_io_op(s_ptr<io::pal::io_op> op);
 
-    // Public: TODO:
+    // Public: TODO: safe version of the attach_timer method
     cid_t submit_timer(duration_t duration, bool rolling, void_func on_timeout);
 
     // Private call
@@ -70,11 +68,16 @@ namespace async::runtime {
 static inline void init() {
 
 };
-static inline void submit(coroutine_void_func &&task, int prio = 1) {
+
+template <typename F>
+    requires std::invocable<F> &&
+             async::internal::is_specialization_of_v<std::invoke_result_t<F>,
+                                                     coroutine>
+static inline void submit_coro(F &&task, int prio = 1) {
     internal::runtime::inst().submit_coro(std::move(task), prio);
 }
 
-static inline void submit(void_func &&task, int prio = 1) {
+static inline void submit_void(void_func &&task, int prio = 1) {
     internal::runtime::inst().submit_func(std::move(task), 1);
 }
 

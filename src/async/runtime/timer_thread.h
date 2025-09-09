@@ -27,7 +27,7 @@ class timer_thread {
         std::lock_guard lck(_timers_m);
 
         _timers.emplace_back(std::move(new_timer), id);
-        // std::cout << "\tADDED TIMER " << id << "\n";
+        std::cout << "\tADDED TIMER " << id << "\n";
 
         return id;
     }

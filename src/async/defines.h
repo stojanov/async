@@ -18,15 +18,15 @@ using bytespan = std::span<std::byte>;
 using void_func = std::function<void()>;
 using any_func = std::function<void(std::any)>;
 
-using coroutine_void_func = std::function<coroutine()>;
-using coroutine_any_func = std::function<coroutine(std::any &)>;
+template <typename T>
+using coroutine_result_func = std::function<coroutine<T>()>;
+
+using coroutine_void_func = std::function<coroutine<>()>;
+using coroutine_any_func = std::function<coroutine<>(std::any &)>;
 using predicate_func = std::function<bool()>;
 } // namespace async
 
 namespace async::internal {
-
-template <typename T>
-using closure_task_func = std::function<void(const T &closure)>;
 
 using u8 = std::uint8_t;
 using u16 = std::uint16_t;

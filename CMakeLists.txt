@@ -19,18 +19,18 @@ if (${ENABLE_ASAN})
 
 endif()
 
-add_compile_options(-fsanitize=address -fno-sanitize=alignment -fsanitize=enum
-                    -fsanitize=leak)
-
-link_libraries(-fsanitize=address -fno-sanitize=alignment -fsanitize=enum
-               -fsanitize=leak)
+# add_compile_options(-fsanitize=address -fno-sanitize=alignment -fsanitize=enum
+#                     -fsanitize=leak)
+#
+# link_libraries(-fsanitize=address -fno-sanitize=alignment -fsanitize=enum
+#                -fsanitize=leak)
 
 link_libraries(spdlog::spdlog)
 
 # set_target_properties(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER "${HEADERS}")
 
 set(LIBRARY_NAME "${PROJECT_NAME}")
-set(LIB_DIR "${CMAKE_SOURCE_DIR}/src/async")
+set(LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/async")
 
 add_library(${LIBRARY_NAME})
 
@@ -79,7 +79,7 @@ target_sources(${LIBRARY_NAME}
         ${LIB_DIR}/io/base.h
 
     PUBLIC FILE_SET HEADERS
-    BASE_DIRS ${CMAKE_SOURCE_DIR}/src FILES
+    BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src FILES
         ${LIB_DIR}/wait_group.h
         ${LIB_DIR}/sleep.h
         ${LIB_DIR}/select.h

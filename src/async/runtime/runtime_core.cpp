@@ -3,6 +3,7 @@
 #include <async/runtime/timer_thread.h>
 #include <async/runtime/worker_thread.h>
 #include <coroutine>
+#include <variant>
 
 namespace async::internal {
 runtime_core::runtime_core() : _thread_work_visitor(*this) {}
@@ -29,12 +30,8 @@ void runtime_core::spawn(std::size_t N) {
     _capacity.fetch_add(N);
 }
 
-void runtime_core::submit(coroutine_void_func &&func) {
-    _runqueue.push_pending_raw_task({func});
-}
-
-void runtime_core::submit(void_func &&func) {
-    _runqueue.push_pending_raw_task({func});
+void runtime_core::submit_func(void_func &&func) {
+    _runqueue.push_pending_task(std::move(func));
 }
 
 // should be able to specify somekind of priority
@@ -52,9 +49,8 @@ void runtime_core::worker(thread_var_t *work) {
     }
     // not while, just start the work, just slows down the threads
     // idk actually think about this
-    while (_running) {
-        std::visit(_thread_work_visitor, *work);
-    }
+    auto istim = std::holds_alternative<timer_thread>(*work);
+    std::visit(_thread_work_visitor, *work);
 }
 
 void runtime_core::shutdown() {

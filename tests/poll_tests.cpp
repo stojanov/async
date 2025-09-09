@@ -30,18 +30,20 @@ TEST_F(PollTests, PerfTest) {
     std::atomic_size_t c = 0;
     bool running = true;
 
-    int coro_count = 4;
+    int coro_count = 1;
 
     for (int i = 0; i < coro_count; i++) {
-        rtime().submit_coro([&] -> async::coroutine {
+        rtime().submit_coro([&] -> async::coroutine<> {
             auto &co = c;
             auto &l = last;
             auto &d = dur;
             auto &r = running;
 
-            while (co_await async::timed_poll(std::chrono::milliseconds(20)) &&
+            spdlog::warn("----STARTED CORO");
+
+            while (co_await async::timed_poll(std::chrono::milliseconds(400)) &&
                    r) {
-                /*std::cout << "|n";*/
+                std::cout << "-------------- " << co << "\n";
                 co++;
             }
 
@@ -65,4 +67,8 @@ TEST_F(PollTests, PerfTest) {
     spdlog::warn("Coro count: {}\tTime: {}ms\tAverage time between poll: "
                  "{}ms\tSwitch Count: {}",
                  coro_count, time, avg, c.load());
+
+    while (1) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
 }

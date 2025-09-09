@@ -8,6 +8,7 @@
 #include <async/runtime/timer_thread.h>
 #include <async/runtime/worker_thread.h>
 #include <coroutine>
+#include <memory>
 
 namespace async::internal {
 struct runtime_core {
@@ -67,38 +68,40 @@ struct runtime_core {
         auto thread_work_variant = std::make_unique<thread_var_t>();
         thread_work_variant->emplace<T>(std::forward<Args>(args)...);
 
-        const auto thread_work = [this, work = thread_work_variant.get()]() {
-            worker(work);
-        };
+        const auto thread_work =
+            [this, id, work = thread_work_variant.get()]() { worker(work); };
 
         // TODO: LOCK HERE
         auto &t =
             _threads.emplace_back(id, std::move(thread_work_variant),
                                   std::make_unique<std::thread>(thread_work));
 
-        _capacity.fetch_add(1);
+        if constexpr (std::is_same_v<worker_thread, T>) {
+            _capacity.fetch_add(1);
+        }
         return t;
     }
 
     bool has_available();
 
-    // provide raw, and coroutine spawns
-    void submit(coroutine_void_func &&func);
+    template <typename T>
+    void submit_coro(std::function<coroutine<T>()> &&func) {
+        auto pending = std::make_shared<pending_coro<T>>(std::move(func));
+
+        _runqueue.push_pending_task(
+            std::move(std::dynamic_pointer_cast<pending_coro_base>(pending)));
+    }
 
     // pure func/task,
     // TODO: in the future maybe use the std::future abstraction
     // For the coroutines provide our own future base
-    void submit(void_func &&func);
-
-    template <typename T> void submit_closure(T &state, any_func func) {
-        _runqueue.push_pending_raw_task({func, state});
-    }
+    void submit_func(void_func &&func);
 
     void submit_resume(std::coroutine_handle<> h);
 
     void remove_coro(cid_t id) {
-        spdlog::warn("REMOVE CORO");
-        _runqueue.clean_coro(id);
+        // spdlog::warn("REMOVE CORO {}", id);
+        // _runqueue.clean_coro(id);
     }
 
     void spawn_new();

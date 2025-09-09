@@ -37,19 +37,25 @@ TEST_F(SpawnTests, SpawnCoroutine) {
 
     auto start = async::clk_t::now();
 
-    rtime().submit_coro([]() -> async::coroutine {
+    rtime().submit_coro([]() -> async::coroutine<> {
         // co_await async::poll();
         std::cout << "THIS STARTED\n";
-        co_await async::sleep(std::chrono::milliseconds(1000));
+        // co_await async::sleep(std::chrono::milliseconds(1000));
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        co_await async::poll();
         std::cout << "THIS FINISHED\n";
     });
+
+    // rtime().submit_result([]() -> async::coroutine<int> { co_return 2; });
 
     auto end = async::clk_t::now();
     auto dt = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
 
     spdlog::warn("SUBMIT TOOK {} nano sex", dt.count());
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+    while (1) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+    }
 }
 
 // TEST_F(SpawnTests, SignalTests) {

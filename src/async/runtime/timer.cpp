@@ -20,9 +20,13 @@ void timer::tick() {
     const auto took = now - _last_start;
 
     if (took > _duration) {
+        spdlog::warn("TIMER FINISHED\n");
         _over_step = true;
+        _finished = true;
 
         _on_timeout();
+
+        spdlog::warn("AFTER FUNC");
 
         _last_start = now;
     } else {

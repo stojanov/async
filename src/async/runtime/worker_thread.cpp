@@ -7,8 +7,8 @@
 namespace async::internal {
 
 struct work_visitor {
-    inline void operator()(task_block &block) {
-        th->_core._runqueue.activate(block);
+    inline void operator()(task_package &task) {
+        th->_core._runqueue.activate(task);
     }
 
     inline void operator()(coro_handle handle) { handle.resume(); }
@@ -16,6 +16,7 @@ struct work_visitor {
     worker_thread *th;
 };
 
+// Refactor
 worker_thread::worker_thread(runtime_core &core) : _core(core) {}
 
 // consider exit case

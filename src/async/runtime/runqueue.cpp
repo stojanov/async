@@ -5,27 +5,16 @@
 namespace async::internal {
 runqueue::runqueue() {}
 
-void runqueue::push_pending_raw_task(task_block &block) {
-    {
-        std::unique_lock lck(_raw_pending_M);
-        _pending_raw_tasks.push_back(block);
-    }
-
-    spdlog::warn("Got task");
-    _raw_pending_signal.notify_one();
-    _wait_task_signal.notify_one();
-}
-
-void runqueue::push_pending_raw_task(task_block &&block) {
-    {
-        std::unique_lock lck(_raw_pending_M);
-        _pending_raw_tasks.push_back(std::move(block));
-    }
-
-    spdlog::warn("Got task");
-    _raw_pending_signal.notify_one();
-    _wait_task_signal.notify_one();
-}
+// void runqueue::push_pending_raw_task(task_block &&block) {
+//     {
+//         std::unique_lock lck(_raw_pending_M);
+//         _pending_raw_tasks.push_back(std::move(block));
+//     }
+//
+//     spdlog::warn("Got task");
+//     _raw_pending_signal.notify_one();
+//     _wait_task_signal.notify_one();
+// }
 
 void runqueue::push_pending_resume(std::coroutine_handle<> h) {
     // should be locked
@@ -35,27 +24,6 @@ void runqueue::push_pending_resume(std::coroutine_handle<> h) {
     }
     // spdlog::warn("Got resume");
     _wait_task_signal.notify_one();
-}
-
-// noone uses this as of now
-coro_handle runqueue::peek_pop_pending_resume() {
-    // TODO: locking
-    coro_handle h = _pending_coro_resumes.front();
-
-    _pending_coro_resumes.pop_back();
-
-    return h;
-}
-
-// TODO: CONSIDER EXIT CASE, SHUTDOWN
-task_block runqueue::peek_pending_task() {
-    std::unique_lock lck(_raw_pending_M);
-    _raw_pending_signal.wait(lck,
-                             [this]() { return !_pending_raw_tasks.empty(); });
-
-    const task_block block = _pending_raw_tasks.front();
-
-    return block;
 }
 
 std::optional<runqueue::task_object> runqueue::wait_on_pending_work() {
@@ -72,9 +40,9 @@ std::optional<runqueue::task_object> runqueue::wait_on_pending_work() {
     {
         std::lock_guard lck(_pending_coro_res_M);
         if (!_pending_coro_resumes.empty()) {
-            coro_handle h = _pending_coro_resumes.front();
+            coro_handle h = _pending_coro_resumes.back();
             // spdlog::warn("FOUND CORO");
-            _pending_coro_resumes.pop_front();
+            _pending_coro_resumes.pop_back();
             return h;
         }
     }
@@ -83,34 +51,14 @@ std::optional<runqueue::task_object> runqueue::wait_on_pending_work() {
         std::lock_guard lck(_raw_pending_M);
         if (!_pending_raw_tasks.empty()) {
             // minimize copy
-            task_block t = _pending_raw_tasks.front();
+            task_package t = _pending_raw_tasks.back();
             spdlog::warn("FOUND TASK");
-            _pending_raw_tasks.pop_front();
+            _pending_raw_tasks.pop_back();
             return t;
         }
     }
 
     return std::nullopt;
-}
-
-// TODO: add try_pop, when needed
-void runqueue::pop_pending_taks() {
-    std::unique_lock lck(_raw_pending_M);
-    _raw_pending_signal.wait(lck,
-                             [this]() { return !_pending_raw_tasks.empty(); });
-
-    _pending_raw_tasks.pop_front();
-}
-
-task_block runqueue::peek_pop_pending_task() {
-    std::unique_lock lck(_raw_pending_M);
-    _raw_pending_signal.wait(lck,
-                             [this]() { return !_pending_raw_tasks.empty(); });
-
-    const task_block block = _pending_raw_tasks.front();
-    _pending_raw_tasks.pop_front();
-
-    return block;
 }
 
 } // namespace async::internal

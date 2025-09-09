@@ -1,4 +1,5 @@
 #include <async/runtime/timer_thread_handler.h>
+
 #include <async/utils.h>
 
 namespace async::internal {
