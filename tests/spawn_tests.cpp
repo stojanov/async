@@ -1,7 +1,8 @@
-#include "async/defines.h"
 #include <async/channel.h>
+#include <async/defines.h>
 #include <async/runtime/coroutine.h>
 #include <async/runtime/runtime.h>
+#include <async/runtime/task_handle.h>
 #include <async/sleep.h>
 #include <chrono>
 #include <deque>
@@ -32,256 +33,84 @@ class SpawnTests : public testing::Test {
     }
 };
 
-TEST_F(SpawnTests, SpawnCoroutine) {
-    std::cout << "RAN\n";
+TEST_F(SpawnTests, SpawnCoroutineAndGetResult) {
+    auto h =
+        async::runtime::submit([]() -> async::coroutine<int> { co_return 42; });
 
-    auto start = async::clk_t::now();
+    auto h2 = async::runtime::submit([]() -> async::coroutine<int> {
+        auto h = async::runtime::submit(
+            []() -> async::coroutine<int> { co_return 24; });
 
-    rtime().submit_coro([]() -> async::coroutine<> {
-        // co_await async::poll();
-        std::cout << "THIS STARTED\n";
-        // co_await async::sleep(std::chrono::milliseconds(1000));
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-        co_await async::poll();
-        std::cout << "THIS FINISHED\n";
+        auto res = co_await h->coro().result_coro();
+        co_return res;
     });
 
-    // rtime().submit_result([]() -> async::coroutine<int> { co_return 2; });
-
-    auto end = async::clk_t::now();
-    auto dt = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
-
-    spdlog::warn("SUBMIT TOOK {} nano sex", dt.count());
-
-    while (1) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-    }
+    EXPECT_EQ(h->thread().result(), 42);
+    EXPECT_EQ(h2->thread().result(), 24);
 }
 
-// TEST_F(SpawnTests, SignalTests) {
-//     async::signal s;
-//     bool k = false;
-//
-//     rtime().submit([&]() -> async::runtime::coroutine {
-//         auto &ks = s;
-//         auto &kk = k;
-//         std::cout << "A STARTED\n";
-//         std::this_thread::sleep_for(std::chrono::milliseconds(400));
-//         std::cout << "NOTIFIED\n";
-//         kk = true;
-//         // ks.notify_all();
-//         std::cout << "A FINISHED\n";
-//     });
-//
-//     // rtime().submit([&]() -> async::runtime::coroutine {
-//     //     auto &ks = s;
-//     //     auto &kk = k;
-//     //     std::cout << "B STARTED\n";
-//     //     co_await ks.wait_if([&]() { return kk; });
-//     //     std::cout << "B FINISHED\n";
-//     //     std::cout << "TEST PRINT\n";
-//     // });
-//
-//     while (1) {
-//         std::this_thread::sleep_for(std::chrono::seconds(2));
-//     }
-// }
+TEST_F(SpawnTests, SignalTests) {
+    async::signal s;
 
-// TEST_F(SpawnTests, ChannelTests) {
-//     async::channel<int> chan;
-//
-//     bool ready;
-//
-//     rtime().submit([&]() -> async::runtime::coroutine {
-//         auto &chan_ref = chan;
-//         auto &b = ready;
-//
-//         int i = 0;
-//         while (b) {
-//             std::cout << "PUSHING " << i << "\n";
-//             chan_ref.push(i++);
-//
-//             // TODO: add sleep
-//             co_await async::sleep(std::chrono::milliseconds(500));
-//         }
-//     });
-//
-//     rtime().submit([&]() -> async::runtime::coroutine {
-//         auto &chan_ref = chan;
-//         auto &b = ready;
-//
-//         while (b) {
-//             std::cout << "TRYING FETCH from A" << "\n";
-//
-//             auto v = co_await chan_ref.fetch();
-//
-//             std::cout << "FETCHED CHANNEL A" << *v << "\n";
-//         }
-//     });
-//
-//     std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-//     ready = false;
-// }
+    bool notified = false;
 
-// TEST_F(SpawnTests, SleepTests) {
-/*    rtime().submit([]() -> async::runtime::coroutine {*/
-/*        while (1) {*/
-/*            std::cout << "GOING TO SLEEP" << "\n";*/
-/**/
-/*            co_await async::sleep(std::chrono::milliseconds(500), 1);*/
-/**/
-/*            std::cout << "UNSLEPT \n";*/
-/*        }*/
-/*    });*/
-/**/
-/*    while (1) {*/
-/*        std::this_thread::sleep_for(std::chrono::milliseconds(100));*/
-/*    }*/
-/*}*/
-// template <class... Ts> struct overloads : Ts... {
-//     using Ts::operator()...;
-// };
-//
-// TEST_F(SpawnTests, ChannelTests) {
-//     std::shared_ptr<async::channel<int>> chan =
-//         std::make_shared<async::channel<int>>();
-//
-//     std::shared_ptr<async::channel<std::string>> chan1 =
-//         std::make_shared<async::channel<std::string>>();
-//
-//     std::shared_ptr<async::channel<char>> chan2 =
-//         std::make_shared<async::channel<char>>();
-//
-//     spdlog::warn("IDS {} {} {}", chan->id(), chan1->id(), chan2->id());
-//
-//     async::co_select sl{chan, chan1, chan2};
-//
-//     std::mutex m;
-//     std::deque<decltype(sl)::variant_type> queue;
-//     std::atomic_bool running = true;
-//
-//     rtime().submit([&sl, &m, &queue, &running]() -> async::runtime::coroutine
-//     {
-//         auto &select = sl;
-//         auto &mu = m;
-//         auto &q = queue;
-//         auto &r = running;
-//
-//         overloads visitor{[&mu, &q](int i) {
-//                               std::lock_guard lck(mu);
-//                               auto k = q.front();
-//                               q.pop_front();
-//
-//                               EXPECT_TRUE(std::holds_alternative<int>(k));
-//                               std::cout << "GOT INTEGER " << i << "\n";
-//                           },
-//                           [&mu, &q](std::string &str) {
-//                               std::lock_guard lck(mu);
-//                               auto k = q.front();
-//                               q.pop_front();
-//                               EXPECT_TRUE(
-//                                   std::holds_alternative<std::string>(k));
-//                               std::cout << "GOT STRING " << str << "\n";
-//                           },
-//                           [&mu, &q](char i) {
-//                               std::lock_guard lck(mu);
-//                               auto k = q.front();
-//                               q.pop_front();
-//                               EXPECT_TRUE(std::holds_alternative<char>(k));
-//                               std::cout << "GOT FLOAT " << i << "\n";
-//                           }};
-//
-//         spdlog::error("STARTED COLLECTING FROM SELECT BEFORE POLL");
-//         while (co_await async::poll()) {
-//             std::cout << "-------STARTED WAITING--------" << "\n";
-//             auto v = co_await select.fetch();
-//
-//             std::cout << "SELECT FINISHED \n";
-//             if (v) {
-//                 std::visit(visitor, *v);
-//             } else {
-//             }
-//         }
-//     });
-//
-//     rtime().submit(
-//         [&chan, &m, &queue, &running]() -> async::runtime::coroutine {
-//             auto &chan_ref = chan;
-//             auto &mu = m;
-//             auto &q = queue;
-//             auto &r = running;
-//
-//             int i = 0;
-//             spdlog::error("STARTED PUSHING INT FROM SELECT BEFORE POLL");
-//             while (co_await async::poll()) {
-//                 std::this_thread::sleep_for(std::chrono::milliseconds(5));
-//
-//                 std::cout << "-------- PUSHING INT " << i << "\n";
-//                 chan_ref->push(i);
-//                 {
-//                     std::lock_guard lck(mu);
-//                     q.push_back(i);
-//                 }
-//                 i++;
-//             }
-//         });
-//
-//     rtime().submit(
-//         [&chan1, &m, &queue, &running]() -> async::runtime::coroutine {
-//             auto &chan_ref = chan1;
-//             auto &mu = m;
-//             auto &q = queue;
-//             auto &r = running;
-//
-//             std::string str = "CHAN SEND ";
-//             int i = 0;
-//             spdlog::error("STARTED PUSHING \tSTRING FROM SELECT BEFORE
-//             POLL"); while (co_await async::poll()) {
-//                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
-//
-//                 auto tosend = str + std::to_string(i++);
-//                 std::cout << "-------- PUSHING STRING\n";
-//
-//                 chan_ref->push(tosend);
-//
-//                 {
-//
-//                     std::lock_guard lck(mu);
-//                     q.push_back(tosend);
-//                 }
-//
-//                 // TODO: add sleep
-//             }
-//         });
-//
-//     rtime().submit(
-//         [&chan2, &queue, &m, &running]() -> async::runtime::coroutine {
-//             auto &chan_ref = chan2;
-//             auto &mu = m;
-//             auto &q = queue;
-//             auto &r = running;
-//
-//             char c = 'a';
-//             spdlog::error("STARTED PUSHING \tCHAR FROM SELECT BEFORE POLL");
-//             while (co_await async::poll()) {
-//                 std::this_thread::sleep_for(std::chrono::milliseconds(15));
-//
-//                 std::cout << "-------- PUSHING CHAR " << c << "\n";
-//
-//                 chan_ref->push(c);
-//
-//                 {
-//                     std::lock_guard lck(mu);
-//                     q.push_back(c);
-//                 }
-//
-//                 c++;
-//                 // TODO: add sleep
-//             }
-//         });
-//
-//     std::this_thread::sleep_for(std::chrono::seconds(200));
-//
-//     running = false;
-//     rtime().shutdown();
-// }
+    int state = 0;
+
+    auto handle = async::runtime::submit([&]() -> async::coroutine<> {
+        state = 1;
+        co_await s.wait_if([&] { return notified; });
+        state = 2;
+    });
+
+    notified = true;
+    s.notify_all();
+
+    handle->thread().join();
+
+    EXPECT_EQ(state, 2);
+}
+
+TEST_F(SpawnTests, ChannelTests) {
+    async::channel<int> chan;
+    std::vector<int> recieved;
+
+    bool ready;
+    int MAX_COUNT = 10000;
+
+    auto producer_handle = async::runtime::submit([&] -> async::coroutine<> {
+        int counter = 0;
+
+        for (int counter = 0; counter < MAX_COUNT; counter++) {
+            chan.push(counter);
+        }
+
+        co_return;
+    });
+
+    auto consumer_handle = async::runtime::submit([&] -> async::coroutine<> {
+        while (true) {
+            auto res = co_await chan.fetch();
+
+            if (res) {
+                recieved.push_back(*res);
+
+                if (*res == (MAX_COUNT - 1)) {
+                    co_return;
+                }
+            } else {
+                co_return;
+            }
+        }
+        co_return;
+    });
+
+    producer_handle->thread().join();
+    consumer_handle->thread().join();
+
+    EXPECT_EQ(recieved.size(), MAX_COUNT);
+    int counter = 0;
+    for (auto i : recieved) {
+        EXPECT_EQ(i, counter);
+        counter++;
+    }
+}

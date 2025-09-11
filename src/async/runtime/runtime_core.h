@@ -7,8 +7,6 @@
 #include <async/runtime/runqueue.h>
 #include <async/runtime/timer_thread.h>
 #include <async/runtime/worker_thread.h>
-#include <coroutine>
-#include <memory>
 
 namespace async::internal {
 struct runtime_core {
@@ -85,11 +83,13 @@ struct runtime_core {
     bool has_available();
 
     template <typename T>
-    void submit_coro(std::function<coroutine<T>()> &&func) {
+    cid_t submit_coro(std::function<coroutine<T>()> &&func) {
         auto pending = std::make_shared<pending_coro<T>>(std::move(func));
 
-        _runqueue.push_pending_task(
+        auto id = _runqueue.push_pending_task(
             std::move(std::dynamic_pointer_cast<pending_coro_base>(pending)));
+
+        return id;
     }
 
     // pure func/task,
@@ -98,11 +98,6 @@ struct runtime_core {
     void submit_func(void_func &&func);
 
     void submit_resume(std::coroutine_handle<> h);
-
-    void remove_coro(cid_t id) {
-        // spdlog::warn("REMOVE CORO {}", id);
-        // _runqueue.clean_coro(id);
-    }
 
     void spawn_new();
     void shutdown();

@@ -33,7 +33,7 @@ TEST_F(PollTests, PerfTest) {
     int coro_count = 1;
 
     for (int i = 0; i < coro_count; i++) {
-        rtime().submit_coro([&] -> async::coroutine<> {
+        rtime().submit_test([&] -> async::coroutine<> {
             auto &co = c;
             auto &l = last;
             auto &d = dur;

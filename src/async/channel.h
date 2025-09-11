@@ -16,7 +16,6 @@ template <typename T> struct channel_core {
         chan_awaitable(channel_core<T> &core) : _core(core) {}
 
         bool await_ready() {
-            spdlog::warn("Try fetch channel");
             if (_value = _core.try_fetch(); _value) {
                 return true;
             } else {
@@ -25,7 +24,6 @@ template <typename T> struct channel_core {
         }
 
         void await_suspend(std::coroutine_handle<> h) {
-            spdlog::warn("Chan wait");
             if (_value) {
                 h.resume();
             } else {
@@ -140,19 +138,15 @@ template <typename T> struct channel_core {
     chan_awaitable fetch() { return {*this}; }
 
     std::optional<T> try_fetch() {
-        spdlog::warn("TRY FETCH value of {}", (uint64_t)&_queue_m);
         std::lock_guard lck(_queue_m);
 
-        spdlog::warn("Before empty");
         if (_queue.empty()) {
             return std::nullopt;
         }
 
-        spdlog::warn("Before value back");
-        auto value = _queue.back();
+        auto value = _queue.front();
         _queue.pop();
 
-        spdlog::warn("After value");
         // Todo: can this be optimized
         if (_queue.empty()) {
             notify_observers(value_state::CONSUMED);

@@ -2,6 +2,7 @@
 
 #include <coroutine>
 #include <spdlog/spdlog.h>
+#include <typeindex>
 
 namespace async {
 
@@ -17,6 +18,9 @@ struct promise_base {
     void on_shutdown();
 
     std::size_t _id;
+    void *_value_ptr{nullptr};
+    // might be needed, might not
+    // std::type_index _t_idx;
 };
 
 template <typename T> struct promise : public promise_base {
@@ -31,10 +35,12 @@ template <typename T> struct promise : public promise_base {
 
     void return_value(T &&v) noexcept(std::is_nothrow_move_constructible_v<T>) {
         _value = std::move(v);
+        _value_ptr = &_value;
     }
 
     void unhandled_exception() {}
 
+    // has to be default constructable, sadly
     T _value;
 };
 
