@@ -71,6 +71,8 @@ class runtime {
             i->second->on_result(o);
             _task_handles.erase(i);
         }
+
+        // remove coro here
     }
 
     void shutdown();

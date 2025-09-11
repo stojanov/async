@@ -111,15 +111,74 @@ template <typename T> struct task_handle_coro_core {
     utils::scoped_signal_connection _conn;
 };
 
+template <> struct task_handle_coro_core<void> {
+  public:
+    struct join_awaitable {
+        join_awaitable(task_handle_coro_core<void> &core) : _core(core) {}
+
+        bool await_ready() { return _core.notified(); }
+
+        void await_suspend(std::coroutine_handle<> h) {
+            _core.add_waiting(h, this);
+        }
+
+        void await_resume() {}
+
+      private:
+        friend task_handle_coro_core<void>;
+        task_handle_coro_core<void> &_core;
+    };
+
+  private:
+    struct waiting_values {
+        coro_handle handle;
+        join_awaitable *awaitable;
+    };
+
+  public:
+    task_handle_coro_core(
+        internal::utils::buffered_observer_signal<void(void *)>
+            &notify_signal) {
+        _conn = notify_signal.connect([this](void *o) { notify(o); });
+    };
+
+    // needs to be locked
+    bool notified() {
+        std::lock_guard lck(_valueM);
+        return _notified;
+    }
+
+    void add_waiting(coro_handle h, join_awaitable *awaitable) {
+        std::lock_guard lck(_valueM);
+        _waiting.emplace_back(h, awaitable);
+    }
+
+    void notify(void *o) {
+        std::lock_guard lck(_valueM);
+        for (const auto &waiter : _waiting) {
+            runtime::inst().submit_resume(waiter.handle);
+        }
+        _value_ptr = o;
+        _notified = true;
+    }
+
+  private:
+    std::mutex _valueM;
+    void *_value_ptr{nullptr};
+    bool _notified{false};
+    std::list<waiting_values> _waiting;
+    utils::scoped_signal_connection _conn;
+};
 }; // namespace internal
 
 template <typename T> struct task_handle : public internal::task_handle_base {
   private:
     task_handle(cid_t id) : internal::task_handle_base(id), notify_signal(10) {}
 
+    T obj;
     void on_result(void *o) override {
-        // spdlog::warn("TASK HANDLE GOT NOTIFY {}", _id);
-        notify_signal(o);
+        obj = std::move(*static_cast<T *>(o));
+        notify_signal(&obj);
     }
 
     friend internal::runtime;
@@ -142,9 +201,7 @@ template <typename T> struct task_handle : public internal::task_handle_base {
 
         [[nodiscard]] T result() {
             std::unique_lock lck(_valueM);
-            // spdlog::warn("NOTOFIEID INSIDE THR {}", _notified);
             _valueCV.wait(lck, [this] { return _notified && _value_ptr; });
-            // spdlog::warn("DID RELEASE");
 
             return std::move(*static_cast<T *>(_value_ptr));
         }
@@ -158,7 +215,6 @@ template <typename T> struct task_handle : public internal::task_handle_base {
         };
 
         void on_notify(void *o) {
-            // spdlog::warn("WARN HANDLE got notify ");
             {
                 std::lock_guard lck(_valueM);
                 _value_ptr = o;
@@ -195,6 +251,72 @@ template <typename T> struct task_handle : public internal::task_handle_base {
 
       private:
         internal::task_handle_coro_core<T> _coro_core;
+    };
+
+    thread_view thread() { return {notify_signal}; }
+    coro_view coro() { return {notify_signal}; }
+
+  private:
+    internal::utils::buffered_observer_signal<void(void *)> notify_signal;
+};
+
+template <> struct task_handle<void> : public internal::task_handle_base {
+  private:
+    task_handle(cid_t id) : internal::task_handle_base(id), notify_signal(10) {}
+
+    void on_result(void *o) override { notify_signal(o); }
+
+    friend internal::runtime;
+
+  public:
+    struct thread_view {
+        friend task_handle<void>;
+
+      private:
+        thread_view(internal::utils::buffered_observer_signal<void(void *)>
+                        &notify_signal) {
+            _conn = notify_signal.connect([this](void *o) { on_notify(o); });
+        }
+
+      public:
+        void join() {
+            std::unique_lock lck(_valueM);
+            _valueCV.wait(lck, [this] { return _notified; });
+        };
+
+        void on_notify(void *o) {
+            {
+                std::lock_guard lck(_valueM);
+                _value_ptr = o;
+                _notified = true;
+            }
+            _valueCV.notify_one();
+        }
+
+      private:
+        internal::utils::scoped_signal_connection _conn;
+        void *_value_ptr{nullptr};
+        bool _notified{false};
+        std::mutex _valueM;
+        std::condition_variable _valueCV;
+    };
+
+    struct coro_view {
+        friend task_handle<void>;
+
+      private:
+        coro_view(internal::utils::buffered_observer_signal<void(void *)>
+                      &notify_signal)
+            : _coro_core(notify_signal) {}
+
+      public:
+        [[nodiscard]] internal::task_handle_coro_core<void>::join_awaitable
+        join_coro() {
+            return {_coro_core};
+        }
+
+      private:
+        internal::task_handle_coro_core<void> _coro_core;
     };
 
     thread_view thread() { return {notify_signal}; }

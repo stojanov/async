@@ -10,6 +10,7 @@ namespace async {
 
 namespace internal {
 
+// TODO: Refactor this code
 template <typename T> struct channel_core {
   public:
     struct chan_awaitable {
@@ -69,12 +70,13 @@ template <typename T> struct channel_core {
     void push(const T &value) {
         bool is_waiting_empty = false;
 
-        {
+        auto is_waiting_empty_f = [&]() {
             std::lock_guard lck(_waiting_m);
             is_waiting_empty = _waiting.empty();
-        }
+            return _waiting.empty();
+        };
 
-        if (is_waiting_empty && _observables.empty()) {
+        if (is_waiting_empty_f() && _observables.empty()) {
             std::lock_guard lck(_queue_m);
             _queue.push(value);
             return;
@@ -90,16 +92,14 @@ template <typename T> struct channel_core {
             return false;
         };
 
-        if (!_observables.empty() && is_waiting_empty) {
+        if (!_observables.empty() && is_waiting_empty_f()) {
             if (!observers_value_pass_notification()) {
                 std::lock_guard lck(_queue_m);
                 _queue.push(value);
                 notify_observers(value_state::READY);
             }
             return;
-        }
-
-        if (!_observables.empty() && !is_waiting_empty) {
+        } else if (!_observables.empty() && !is_waiting_empty_f()) {
             if (_rnd_dist(_rnd_gen) > 0.5) {
                 if (!observers_value_pass_notification()) {
                     goto consume_value_waiting;
@@ -119,17 +119,31 @@ template <typename T> struct channel_core {
             }
 
             return;
-        }
-
-        if (!is_waiting_empty) {
+        } else if (!is_waiting_empty_f()) {
             waiting_values first;
+
             {
                 std::lock_guard lck(_waiting_m);
                 first = _waiting.front();
                 _waiting.pop_front();
             }
 
-            first.awaitable->_value = value;
+            bool set = false;
+            {
+                std::lock_guard lck(_queue_m);
+
+                if (!_queue.empty()) {
+                    T temp = _queue.front();
+                    _queue.pop();
+                    _queue.push(value);
+                    first.awaitable->_value = temp;
+                    set = true;
+                }
+            }
+
+            if (!set) {
+                first.awaitable->_value = value;
+            }
 
             internal::runtime::inst().submit_resume(first.handle);
         }
@@ -145,6 +159,7 @@ template <typename T> struct channel_core {
         }
 
         auto value = _queue.front();
+
         _queue.pop();
 
         // Todo: can this be optimized
@@ -234,7 +249,6 @@ template <typename T> struct channel : public internal::channel_base {
     std::optional<std::any> try_fetch() final {
         auto v = _core.try_fetch();
 
-        spdlog::warn("CORE FETCH CHANNEL");
         if (v == std::nullopt) {
             return std::nullopt;
         }

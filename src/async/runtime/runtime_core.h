@@ -53,8 +53,8 @@ struct runtime_core {
     runtime_core();
 
     ~runtime_core() {
+        shutdown();
         std::cout << "RUNTIME DEASD\n";
-        // _runqueue.print_stats();
     }
 
     void spawn(std::size_t N);
