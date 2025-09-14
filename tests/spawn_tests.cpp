@@ -1,23 +1,11 @@
 #include <async/channel.h>
-#include <async/defines.h>
-#include <async/runtime/coroutine.h>
-#include <async/runtime/runtime.h>
-#include <async/runtime/task_handle.h>
+#include <async/runtime.h>
 #include <async/sleep.h>
-#include <chrono>
-#include <deque>
 #include <gtest/gtest.h>
 
+#include <async/channel_select.h>
 #include <async/poll.h>
-#include <iostream>
-#include <ratio>
-#include <string>
-#include <thread>
-#include <unistd.h>
-
-#include <async/select.h>
 #include <async/signal.h>
-#include <variant>
 
 using namespace testing;
 
@@ -25,17 +13,16 @@ class SpawnTests : public testing::Test {
     void SetUp() override {}
 
     void TearDown() override {
+        // very not cool
         async::internal::runtime::public_inst().shutdown();
     }
 };
 
 TEST_F(SpawnTests, SpawnCoroutineAndGetResult) {
-    auto h =
-        async::runtime::submit([]() -> async::coroutine<int> { co_return 42; });
+    auto h = async::submit([]() -> async::coroutine<int> { co_return 42; });
 
-    auto h2 = async::runtime::submit([]() -> async::coroutine<int> {
-        auto h = async::runtime::submit(
-            []() -> async::coroutine<int> { co_return 24; });
+    auto h2 = async::submit([]() -> async::coroutine<int> {
+        auto h = async::submit([]() -> async::coroutine<int> { co_return 24; });
 
         auto res = co_await h->coro().result_coro();
         co_return res;
@@ -52,7 +39,7 @@ TEST_F(SpawnTests, SignalTests) {
 
     int state = 0;
 
-    auto handle = async::runtime::submit([&]() -> async::coroutine<> {
+    auto handle = async::submit([&]() -> async::coroutine<> {
         state = 1;
         co_await s.wait_if([&] { return notified; });
         state = 2;
@@ -73,7 +60,7 @@ TEST_F(SpawnTests, ChannelTests) {
     bool ready;
     int MAX_COUNT = 10000;
 
-    auto producer_handle = async::runtime::submit([&] -> async::coroutine<> {
+    auto producer_handle = async::submit([&] -> async::coroutine<> {
         int counter = 0;
 
         for (int counter = 0; counter < MAX_COUNT; counter++) {
@@ -83,7 +70,7 @@ TEST_F(SpawnTests, ChannelTests) {
         co_return;
     });
 
-    auto consumer_handle = async::runtime::submit([&] -> async::coroutine<> {
+    auto consumer_handle = async::submit([&] -> async::coroutine<> {
         while (true) {
             auto res = co_await chan.fetch();
 

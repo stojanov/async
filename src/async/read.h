@@ -1,8 +1,8 @@
 #pragma once
 
-#include <async/io/base.h>
-#include <async/pch.h>
-#include <async/runtime/runtime.h>
+#include <async/internal/io/base.h>
+#include <async/internal/pch.h>
+#include <async/internal/runtime/runtime.h>
 #include <memory>
 #include <thread>
 

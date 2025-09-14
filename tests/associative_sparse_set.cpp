@@ -1,4 +1,4 @@
-#include <async/cont/sparse_set.h>
+#include <async/internal/cont/sparse_set.h>
 #include <gtest/gtest.h>
 
 struct TestValue {

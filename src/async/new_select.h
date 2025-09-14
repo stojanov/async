@@ -1,79 +1,13 @@
 #pragma once
 
-#include <async/pch.h>
-#include <async/runtime/runtime.h>
-#include <async/util/signal.h>
-#include <async/util/signal_connection.h>
-#include <concepts>
-
-namespace async::internal {};
+#include <async/internal/pch.h>
+#include <async/internal/runtime/runtime.h>
+#include <async/internal/select_base.h>
+#include <async/internal/util/signal_connection.h>
 
 namespace async::internal {
 
-enum class select_kind { ONE_SHOT, PERSISTENT };
-
-struct select_notify_base;
-
-using select_notify_func =
-    std::function<bool(select_notify_base *, value_state)>;
-
-struct select_notify_base {
-  public:
-    u64 id() { return (u64)this; }
-
-    virtual bool is_ready() = 0;
-    virtual const std::type_info &type() = 0;
-
-    virtual std::pair<utils::signal_connection, value_state>
-    add_obeservable(select_kind, select_notify_func &&func) = 0;
-};
-
-using select_handle = internal::select_notify_base *;
-
-struct sequential_match_select {
-    friend struct select_core_new;
-
-  private:
-    sequential_match_select(select_handle handle) : _handle(handle) {}
-
-  public:
-    template <typename T, typename F>
-        requires std::invocable<F, T &>
-    void on(T &o, F &&callback) {
-        select_handle s = &o;
-
-        if (_handle == s) {
-            callback(o);
-        }
-    }
-
-    template <typename T, typename F>
-        requires std::invocable<F>
-    void on(T &o, F &&callback) {
-        select_handle s = &o;
-
-        if (_handle == s) {
-            callback();
-        }
-    }
-
-    template <typename T, typename F>
-        requires std::invocable<F, T &>
-    void on(std::shared_ptr<T> &o, F &&callback) {
-        on(*o, callback);
-    }
-
-    template <typename T, typename F>
-        requires std::invocable<F>
-    void on(std::shared_ptr<T> &o, F &&callback) {
-        on(*o, callback);
-    }
-
-  private:
-    select_handle _handle;
-};
-
-struct select_core_new {
+struct select_core {
     // awaitable
     bool await_ready() { return _resolved_value; }
 
@@ -81,7 +15,7 @@ struct select_core_new {
 
     sequential_match_select await_resume() { return {_resolved_value}; }
 
-    template <typename... Args> select_core_new(Args &&...args) {
+    template <typename... Args> select_core(Args &&...args) {
         (attach(std::forward<Args>(args)), ...);
     }
 
@@ -144,7 +78,7 @@ struct select_core_new {
 namespace async {
 
 template <typename... Args>
-inline static internal::select_core_new select_test(Args &&...args) {
+inline static internal::select_core select(Args &&...args) {
     return {std::forward<Args>(args)...};
 };
 

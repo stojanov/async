@@ -1,8 +1,8 @@
 #pragma once
 
-#include <async/pch.h>
-#include <async/runtime/runtime.h>
-#include <async/util/sync_op.h>
+#include <async/internal/pch.h>
+#include <async/internal/runtime/runtime.h>
+#include <async/internal/util/sync_op.h>
 
 namespace async {
 

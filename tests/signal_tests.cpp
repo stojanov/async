@@ -1,6 +1,6 @@
 
-#include <async/util/signal.h>
-#include <async/util/signal_connection.h>
+#include <async/internal/util/observer_signal.h>
+#include <async/internal/util/signal_connection.h>
 
 #include <gtest/gtest.h>
 

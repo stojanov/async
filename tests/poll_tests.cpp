@@ -1,9 +1,7 @@
 #include <atomic>
 #define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_OFF
-#include "async/defines.h"
-#include "async/runtime/coroutine.h"
 #include <async/poll.h>
-#include <async/runtime/runtime.h>
+#include <async/runtime.h>
 #include <chrono>
 #include <gtest/gtest.h>
 
@@ -13,11 +11,6 @@ class PollTests : public Test {
     void SetUp() override {}
 
     void TearDown() override {}
-
-  protected:
-    async::internal::runtime &rtime() {
-        return async::internal::runtime::inst();
-    }
 };
 
 TEST_F(PollTests, PerfTest) {
@@ -33,7 +26,7 @@ TEST_F(PollTests, PerfTest) {
     int coro_count = 1;
 
     for (int i = 0; i < coro_count; i++) {
-        rtime().submit_test([&] -> async::coroutine<> {
+        async::submit([&] -> async::coroutine<> {
             auto &co = c;
             auto &l = last;
             auto &d = dur;

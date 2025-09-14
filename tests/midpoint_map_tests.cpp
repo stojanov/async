@@ -1,10 +1,9 @@
-#include <algorithm>
-#include <async/defines.h>
 #include <cstdint>
 #include <gtest/gtest.h>
 
-#include <async/cont/midpoint_map.h>
+#include <async/internal/cont/midpoint_map.h>
 
+#include <algorithm>
 #include <random>
 
 class order_helper {

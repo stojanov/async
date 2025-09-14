@@ -1,10 +1,10 @@
 #pragma once
 
-#include <async/defines.h>
+#include <async/internal/defines.h>
+#include <async/internal/runtime/runtime.h>
+#include <async/internal/util/observer_signal.h>
+#include <async/internal/util/signal_connection.h>
 #include <async/new_select.h>
-#include <async/runtime/runtime.h>
-#include <async/util/signal.h>
-#include <async/util/signal_connection.h>
 
 namespace async {
 

@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include <async/cont/interval_map.h>
+#include <async/internal/cont/interval_map.h>
 #include <optional>
 
 using namespace testing;

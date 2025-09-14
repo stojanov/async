@@ -1,14 +1,9 @@
 
-#include "async/utils.h"
 #include <async/channel.h>
-#include <async/runtime/runtime.h>
-#include <async/runtime/task_handle.h>
-#include <async/select.h>
+#include <async/channel_select.h>
+#include <async/runtime.h>
 #include <async/sleep.h>
-#include <chrono>
-#include <deque>
 #include <gtest/gtest.h>
-#include <new>
 #include <regex.h>
 
 using namespace testing;
@@ -28,7 +23,7 @@ TEST_F(ChannelTests, ChannelTest) {
     bool ready;
     int MAX_COUNT = 10000;
 
-    auto producer_handle = async::runtime::submit([&] -> async::coroutine<> {
+    auto producer_handle = async::submit([&] -> async::coroutine<> {
         int counter = 0;
 
         for (int counter = 0; counter < MAX_COUNT; counter++) {
@@ -38,7 +33,7 @@ TEST_F(ChannelTests, ChannelTest) {
         co_return;
     });
 
-    auto consumer_handle = async::runtime::submit([&] -> async::coroutine<> {
+    auto consumer_handle = async::submit([&] -> async::coroutine<> {
         while (true) {
             auto res = co_await chan.fetch();
 
@@ -81,7 +76,7 @@ TEST_F(ChannelTests, SelectTest) {
     std::vector<Order> order;
     int MAX_COUNT = 10000;
 
-    auto producer1 = async::runtime::submit([&] -> async::coroutine<> {
+    auto producer1 = async::submit([&] -> async::coroutine<> {
         int counter = 0;
 
         for (int counter = 0; counter < MAX_COUNT; counter++) {
@@ -93,7 +88,7 @@ TEST_F(ChannelTests, SelectTest) {
         co_return;
     });
 
-    auto producer2 = async::runtime::submit([&] -> async::coroutine<> {
+    auto producer2 = async::submit([&] -> async::coroutine<> {
         std::string out = "OUT ";
 
         int counter = 0;
@@ -108,12 +103,12 @@ TEST_F(ChannelTests, SelectTest) {
         co_return;
     });
 
-    auto consumer = async::runtime::submit([&] -> async::coroutine<> {
+    auto consumer = async::submit([&] -> async::coroutine<> {
         auto end = MAX_COUNT * 2;
 
         int counter = 0;
 
-        async::co_select sel(int_channel, string_channel);
+        async::channel_select sel(int_channel, string_channel);
 
         while (true) {
             if (counter == end) {

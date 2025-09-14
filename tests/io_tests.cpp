@@ -1,6 +1,6 @@
-#include <async/io/base.h>
+#include <async/internal/io/base.h>
 #include <async/read.h>
-#include <async/runtime/runtime.h>
+#include <async/runtime.h>
 #include <gtest/gtest.h>
 #include <unistd.h>
 
@@ -12,14 +12,11 @@ class IOTests : public Test {
     void TearDown() override {}
 
   protected:
-    async::internal::runtime &rtime() {
-        return async::internal::runtime::inst();
-    }
 };
 
 TEST_F(IOTests, ReadSTDIN) {
 
-    rtime().submit_test([]() -> async::coroutine<> {
+    async::submit([]() -> async::coroutine<> {
         auto fd = async::io::io_handle(STDIN_FILENO);
 
         std::vector<std::byte> vector;

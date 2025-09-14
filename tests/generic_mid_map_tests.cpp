@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include <async/defines.h>
+#include <async/internal/defines.h>
 
 /*using namespace async;*/
 /**/

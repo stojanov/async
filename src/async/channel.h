@@ -1,10 +1,7 @@
 #pragma once
 
-#include <async/defines.h>
-#include <async/pch.h>
-#include <async/runtime/runtime.h>
-#include <optional>
-#include <random>
+#include <async/internal/pch.h>
+#include <async/internal/runtime/runtime.h>
 
 namespace async {
 
@@ -117,9 +114,8 @@ template <typename T> struct channel_core {
             bool set = false;
 
             // This feels hacky, not *proper*
-            // this hacky approach has to be done everywhere
-            // where we propagate data in order to perserve
-            // order and it will slow us down
+            // in a perfect world and in a perfect code in theory this shouldn't
+            // be needed but my code is far from perfect
             {
                 std::lock_guard lck(_queue_m);
 
@@ -228,7 +224,7 @@ template <typename T> struct channel_core {
 
 struct channel_base {
   protected:
-    template <typename... Args> friend struct select_core;
+    template <typename... Args> friend struct channel_select_core;
 
     virtual std::pair<std::optional<std::any>, bool> try_fetch_select() = 0;
 
