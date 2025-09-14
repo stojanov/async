@@ -5,11 +5,6 @@
 #include <async/runtime/coroutine.h>
 #include <async/runtime/defines.h>
 
-#include <condition_variable>
-#include <coroutine>
-#include <spdlog/spdlog.h>
-#include <variant>
-
 namespace async::internal {
 
 class runqueue {
@@ -54,7 +49,10 @@ class runqueue {
         }
 
         const auto visitor = var_overload{
-            [](void_func func) { func(); },
+            [](void_func func) {
+                func();
+                // TODO: notify finish of task
+            },
             [&](const s_ptr<pending_coro_base> &pending_coro) {
                 auto handle = pending_coro->construct(task.id);
 
@@ -84,13 +82,32 @@ class runqueue {
     void shutdown() {
         _is_dropped = true;
 
-        std::lock_guard lck(_coroM);
-        for (auto i = _coroutines.begin(); i != _coroutines.end();) {
-            // most surely will fuck something up :D
-            i->second.coro.destroy();
+        spdlog::warn("SHUTDOWN RUNQUEUE coros {}, tasks {}", _coroutines.size(),
+                     _pending_raw_tasks.size());
+        {
+            std::lock_guard lck(_coroM);
+
+            spdlog::warn("CORO UNDER MUTEX");
+            for (auto i = _coroutines.begin(); i != _coroutines.end();) {
+                // most surely will fuck something up :D
+                spdlog::warn("DESTORY CORO");
+                i->second.coro.destroy();
+            }
+
+            spdlog::warn("CORO CLEAR");
+            _coroutines.clear();
+            spdlog::warn("CORO CLEAR DONE");
         }
 
-        _coroutines.clear();
+        {
+            std::lock_guard lck(_wait_task_M);
+            _pending_raw_tasks.clear();
+            _pending_coro_resumes.clear();
+        }
+
+        _wait_task_signal.notify_all();
+
+        spdlog::warn("ALL IS NOTIFIED");
     }
 
     void clean_coro(cid_t id) {
@@ -105,13 +122,12 @@ class runqueue {
     std::mutex _wait_task_M;
     std::condition_variable _wait_task_signal;
 
-    std::mutex _raw_pending_M;
-    std::condition_variable _raw_pending_signal;
+    // TODO: maybe bring back old version, each with their own
+    // std::mutex _raw_pending_M;
     // TODO: Can this be optimized, shoud it be ?, lockless
     std::deque<pending_task> _pending_raw_tasks;
 
-    std::mutex _pending_coro_res_M;
-    std::condition_variable _pending_coro_res_signal;
+    // std::mutex _pending_coro_res_M;
     // TODO: Can this be optimized, shoud it be ?, lockless
     std::deque<coro_handle> _pending_coro_resumes;
 

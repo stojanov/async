@@ -19,20 +19,25 @@ std::optional<runqueue::task_object> runqueue::wait_on_pending_work() {
     std::unique_lock lck(_wait_task_M);
 
     _wait_task_signal.wait(lck, [this]() {
-        return !_pending_coro_resumes.empty() || !_pending_raw_tasks.empty();
+        return !_pending_coro_resumes.empty() || !_pending_raw_tasks.empty() ||
+               _is_dropped;
     });
 
+    if (_is_dropped) {
+        return std::nullopt;
+    }
+
     if (!_pending_coro_resumes.empty()) {
-        coro_handle h = _pending_coro_resumes.back();
+        coro_handle h = _pending_coro_resumes.front();
         spdlog::warn("FOUND CORO");
-        _pending_coro_resumes.pop_back();
+        _pending_coro_resumes.pop_front();
         return h;
     }
     if (!_pending_raw_tasks.empty()) {
         // minimize copy
-        pending_task t = _pending_raw_tasks.back();
+        pending_task t = _pending_raw_tasks.front();
         spdlog::warn("FOUND TASK");
-        _pending_raw_tasks.pop_back();
+        _pending_raw_tasks.pop_front();
         // TODO: change this
         return t;
     }

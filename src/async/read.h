@@ -27,6 +27,8 @@ class read_core : public io::read_op {
     coro_handle _waiting;
 };
 
+class read_handle {};
+
 struct read_awaitable_t {
     read_awaitable_t(io::pal::io_handle &handle, bytespan span,
                      std::size_t nbytes)

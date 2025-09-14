@@ -14,7 +14,7 @@ struct signal_connection {
 
     signal_connection &operator=(const signal_connection &conn) {
         if (this != &conn) {
-            _close_func = conn._close_func;
+            _close_func = std::move(conn._close_func);
         }
         return *this;
     }
@@ -24,7 +24,7 @@ struct signal_connection {
 };
 
 struct scoped_signal_connection : public signal_connection {
-    scoped_signal_connection() = default;
+    scoped_signal_connection() : signal_connection() {}
 
     scoped_signal_connection(signal_connection &conn)
         : signal_connection(conn) {}
@@ -37,7 +37,10 @@ struct scoped_signal_connection : public signal_connection {
         return *this;
     }
 
-    ~scoped_signal_connection() { disconnect(); }
+    ~scoped_signal_connection() {
+        spdlog::error("CLOSED FROM SCOPED");
+        disconnect();
+    }
 };
 
 } // namespace async::internal::utils

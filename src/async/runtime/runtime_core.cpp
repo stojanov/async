@@ -54,8 +54,10 @@ void runtime_core::worker(thread_var_t *work) {
 }
 
 void runtime_core::shutdown() {
+    spdlog::warn("BEFORE RUNNING ");
     _running = false;
 
+    spdlog::warn("BEFORE RUNQUEUE");
     _runqueue.shutdown();
 
     const auto visitor = var_overload{

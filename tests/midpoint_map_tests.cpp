@@ -51,6 +51,20 @@ class MidPointMapTest : public testing::Test {
         mp->add(8, "H", 1);
     }
 
+    void fill_dummy_reverse() {
+        mp->add(1, "A", async::internal::u32_m - 1);
+        mp->add(2, "B", 0);
+        mp->add(3, "C", async::internal::u32_m - 1);
+        mp->add(4, "D", 0);
+        mp->add(9, "E", async::internal::u32_m - 2);
+        mp->add(10, "X", async::internal::u32_m - 3);
+        mp->add(11, "K", async::internal::u32_m - 4);
+        mp->add(12, "K1", async::internal::u32_m - 2);
+        mp->add(6, "F", async::internal::u32_m - 1);
+        mp->add(7, "G", async::internal::u32_m - 1);
+        mp->add(8, "H", async::internal::u32_m - 1);
+    }
+
     using mp_t = async::internal::midpoint_map<std::string>;
     std::shared_ptr<mp_t> mp;
     order_helper o_helper;
@@ -157,4 +171,11 @@ TEST_F(MidPointMapTest, EnsureCanFindByPrio) {
         EXPECT_EQ(start->second, "B");
         EXPECT_EQ(end, mp->end());
     }
+}
+
+TEST_F(MidPointMapTest, IncreasePrioTestsByU32Max) {
+    fill_dummy_reverse();
+
+    mp->modify_prio_by_factor(11, -12);
+    mp->print("TEST REVERSE MAP");
 }

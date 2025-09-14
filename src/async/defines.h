@@ -1,12 +1,16 @@
 #pragma once
 
 #include <async/runtime/coroutine.h>
+
+#include <async/util/any_ptr.h>
 #include <chrono>
 #include <coroutine>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
+
+#define ASYNC_DEFAULT_THREAD_COUNT (4)
 
 namespace async {
 
@@ -40,10 +44,11 @@ template <typename T> using u_ptr = std::unique_ptr<T>;
 
 using coro_handle = std::coroutine_handle<>;
 
-enum class value_state { READY = 0, CONSUMED, NOTIFY };
+enum class value_state { READY = 0, CONSUMED = 1, NOTIFY, NOOP };
 
+// very slow func, copies everything
 using value_state_func =
-    std::function<bool(value_state, cid_t id, std::optional<std::any>)>;
+    std::function<bool(value_state, cid_t, const any_ptr &)>;
 
 const auto u32_m = std::numeric_limits<std::uint32_t>::max();
 const auto u64_m = std::numeric_limits<std::uint64_t>::max();

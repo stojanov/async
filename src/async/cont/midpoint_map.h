@@ -162,9 +162,28 @@ template <typename ValueT> class midpoint_map {
         return iter.first;
     }
 
-    void remove(u32 key) { mp.erase(find(key)); }
+    void remove(u32 key) {
+        spdlog::warn("MAP ERASE {}", key);
+        mp.erase(find(key));
+    }
 
     void remove(it_t i) { mp.erase(i); }
+
+    bool modify_prio_by_factor(u32 key, int factor) {
+        auto found = find(key);
+        auto [_, old_prio] = unpack_u32(found->first);
+
+        u32 new_prio = old_prio;
+        if (factor < 0 && old_prio <= factor) {
+            new_prio = 0;
+        } else if (factor > 0 && ((old_prio * factor) > u32_m)) {
+            new_prio = u32_m;
+        } else {
+            new_prio = old_prio + factor;
+        }
+
+        return update_prio(found, new_prio);
+    }
 
     bool update_prio(u32 key, u32 prio) {
         auto found = find(key);
@@ -186,9 +205,11 @@ template <typename ValueT> class midpoint_map {
 
         auto [id, _] = unpack_u32(i->first);
 
-        mp.insert(
-            std::pair(midpoint_create_key(id, prio), std::move(i->second)));
+        auto value = std::move(i->second);
         mp.erase(i);
+        mp.insert(std::pair(midpoint_create_key(id, prio), std::move(value)));
+
+        // spdlog::warn("MAP UPDATE {} SIZE {}", id, mp.size());
 
         return true;
     }
@@ -249,6 +270,7 @@ template <typename ValueT> class midpoint_map {
         const auto new_key = combine_u32(id, 1);
         auto value = mp.lower_bound(new_key);
 
+        // check if end it
         const auto unpacked = unpack_u32(value->first);
 
         if (unpacked.first == id) {
@@ -336,9 +358,16 @@ template <typename ValueT> class midpoint_map {
 
     std::pair<it_t, it_t> get_all_prio() { return {mp.begin(), mp.find(0)}; }
     std::pair<it_t, it_t> get_all_latter() {
-        auto start = mp.find(0);
-        std::advance(start, 1);
-        return {start, mp.end()};
+        auto it = mp.lower_bound(midpoint_create_key(1, 0));
+
+        auto [id_low, prio_low] = unpack_u32(it->first);
+        if (id_low == 0 && prio_low == 0) {
+            it = mp.end();
+        } else if (prio_low != 0) {
+            it = mp.end();
+        }
+
+        return {it, mp.end()};
     }
 
     void print(std::string_view name) {

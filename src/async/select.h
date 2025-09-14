@@ -1,6 +1,5 @@
 #pragma once
 
-#include <algorithm>
 #include <async/channel.h>
 #include <async/cont/midpoint_map.h>
 #include <async/defines.h>
@@ -32,25 +31,16 @@ template <typename... Args> struct select_core {
 
         bool await_ready() {
             if (_value = _core.try_fetch(); _value) {
-                std::cout << "\tTRY_FETCH GOT VALUE\n";
                 return true;
             }
             return false;
         }
 
         void await_suspend(std::coroutine_handle<> h) {
-            if (_value) {
-                h.resume();
-            } else {
-                _h = h;
-                _core.add_waiting(h, this);
-            }
+            _core.add_waiting(h, this);
         }
 
-        std::optional<variant_types> await_resume() {
-            _core.clean_up_waiting(_h);
-            return _value;
-        }
+        std::optional<variant_types> await_resume() { return _value; }
 
         core_t &_core;
         std::coroutine_handle<> _h;
@@ -59,19 +49,34 @@ template <typename... Args> struct select_core {
 
     select_core() : _id(_s_id_counter.fetch_add(1)) {}
 
+    ~select_core() {}
+
     struct waiting_block {
         std::coroutine_handle<> h;
         select_awaitable *awaitable;
     };
 
-    [[nodiscard]] std::optional<variant_types> extract_type(std::any value) {
+    [[nodiscard]] std::optional<variant_types>
+    extract_type(const any_ptr &value) {
         std::optional<variant_types> extracted = std::nullopt;
 
         (
             [&value, &extracted]() {
-                // std::cout << "VALUE TYPE " << value.type().name() << "\n";
-                // std::cout << "TYPE " << typeid(Args).name() << "\n";
+                if (value.type_info() == typeid(Args)) {
+                    extracted = std::optional<variant_types>(
+                        std::move(*static_cast<Args *>(value.data())));
+                }
+            }(),
+            ...);
 
+        return extracted;
+    }
+
+    [[nodiscard]] std::optional<variant_types> extract_type(std::any &&value) {
+        std::optional<variant_types> extracted = std::nullopt;
+
+        (
+            [&value, &extracted]() {
                 if (value.type() == typeid(Args)) {
                     extracted = std::optional<variant_types>(
                         std::any_cast<Args>(value));
@@ -83,12 +88,20 @@ template <typename... Args> struct select_core {
     }
 
     std::optional<variant_types> try_fetch() {
+        std::lock_guard lck(_chnlM);
+
         const auto prio = _chnl.get_all_latter();
 
         for (auto i = prio.first; i != prio.second; i++) {
-            if (auto value = std::move(i->second->try_fetch())) {
-                spdlog::warn("GOT VALUE FROM TRY FETCH ");
-                return extract_type(value.value());
+            auto [value, consumed] = std::move(i->second->try_fetch_select());
+
+            if (value) {
+                if (consumed) {
+                    _chnl.update_prio(i, (u32)value_state::CONSUMED);
+                }
+
+                return extract_type(std::move(value.value()));
+                // after this iterators are invalid
             }
         }
 
@@ -96,36 +109,35 @@ template <typename... Args> struct select_core {
     }
 
     void attach_channels(std::shared_ptr<channel<Args>>... channels) {
-        ((_chnl.add(channels->id(), channels, 1)), ...);
+        (
+            // lock this, no need since it's the constructor
+            [&]() {
+                s_ptr<channel_base> base = channels;
+                auto i = _chnl.add(base->id(), base, 1);
 
-        // maybe no need for copy, think, line 110
-        attach_observers();
-    }
+                value_state state = i->second->add_obeservable(
+                    _id,
+                    [this](value_state v_state, cid_t id, const any_ptr &o) {
+                        return notify_on_value_state(v_state, id, o);
+                    });
 
-    void attach_observers() {
-        // TODO: find a way to remove this,
-        // notify can reorder the map, making the iterators invalid
-        auto channels = _chnl;
-
-        for (auto i = channels.begin(); i != channels.end(); i++) {
-            i->second->add_obeservable(
-                _id, [this](value_state v_state, cid_t id,
-                            std::optional<std::any> value) {
-                    return notify_on_value_state(v_state, id, value);
-                });
-        }
+                _chnl.update_prio(i, (u32)state);
+            }(),
+            ...);
     }
 
     bool notify_on_value_state(value_state v_state, cid_t id,
-                               std::optional<std::any> value) {
+                               const any_ptr &value) {
         // TODO: THINK ABOUT locking
         std::coroutine_handle<> h = nullptr;
 
         switch (v_state) {
         case value_state::READY:
-        case value_state::CONSUMED:
+        case value_state::CONSUMED: {
+            std::lock_guard lck(_chnlM);
             _chnl.update_prio(id, (u32)v_state);
             return false;
+        }
         case value_state::NOTIFY: {
             std::lock_guard lck(_waiting_M);
             if (_waiting.empty()) {
@@ -138,11 +150,12 @@ template <typename... Args> struct select_core {
                 });
 
             if (empty_wait_it != std::end(_waiting)) {
-                empty_wait_it->awaitable->_value = extract_type(value.value());
+                empty_wait_it->awaitable->_value =
+                    std::move(extract_type(value));
+
                 h = empty_wait_it->h;
 
-                spdlog::warn("GOT VALUE FROM NOTIFY {}",
-                             value.value().type().name());
+                _waiting.erase(empty_wait_it);
             }
         }
         default:
@@ -197,6 +210,7 @@ template <typename... Args> struct select_core {
     // std::vector<s_ptr<channel_base>> _channels;
     std::deque<std::any> _value_queue;
 
+    std::mutex _chnlM;
     midpoint_map<s_ptr<internal::channel_base>> _chnl;
 };
 }; // namespace internal
@@ -204,8 +218,11 @@ template <typename... Args> struct select_core {
 // TODO: invalid ref, invalid pointers
 // get the types from the channels, store only the channel base or thye observer
 template <typename... ChannelTypes> struct co_select {
-    using variant_type = std::variant<ChannelTypes...>;
+  private:
     using core_t = internal::select_core<ChannelTypes...>;
+
+  public:
+    using variant_type = std::variant<ChannelTypes...>;
     using select_awaitable_t = core_t::select_awaitable;
 
     co_select(std::shared_ptr<channel<ChannelTypes>>... channels) {

@@ -53,6 +53,7 @@ struct runtime_core {
     runtime_core();
 
     ~runtime_core() {
+        std::cout << "REQUESTED SHUTDOWN\n";
         shutdown();
         std::cout << "RUNTIME DEASD\n";
     }
@@ -98,6 +99,8 @@ struct runtime_core {
     void submit_func(void_func &&func);
 
     void submit_resume(std::coroutine_handle<> h);
+
+    void clean_coro(cid_t id) { _runqueue.clean_coro(id); }
 
     void spawn_new();
     void shutdown();

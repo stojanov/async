@@ -22,14 +22,10 @@
 using namespace testing;
 
 class SpawnTests : public testing::Test {
-    void SetUp() override { rtime().inst(); }
+    void SetUp() override {}
 
-    // TODO: debug crash on shutdown
-    /*void TearDown() override { async::runtime::runtime::get().shutdown(); }*/
-
-  protected:
-    async::internal::runtime &rtime() {
-        return async::internal::runtime::inst();
+    void TearDown() override {
+        async::internal::runtime::public_inst().shutdown();
     }
 };
 

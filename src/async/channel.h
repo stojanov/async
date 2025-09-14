@@ -17,7 +17,7 @@ template <typename T> struct channel_core {
         chan_awaitable(channel_core<T> &core) : _core(core) {}
 
         bool await_ready() {
-            if (_value = _core.try_fetch(); _value) {
+            if (_value = std::move(_core.try_fetch()); _value) {
                 return true;
             } else {
                 return false;
@@ -25,12 +25,8 @@ template <typename T> struct channel_core {
         }
 
         void await_suspend(std::coroutine_handle<> h) {
-            if (_value) {
-                h.resume();
-            } else {
-                _h = h;
-                _core.add_waiting(h, this);
-            }
+            _h = h;
+            _core.add_waiting(h, this);
         }
 
         std::optional<T> await_resume() {
@@ -44,7 +40,6 @@ template <typename T> struct channel_core {
         std::coroutine_handle<> _h;
         friend channel_core<T>;
         channel_core<T> &_core;
-
         // in case of timed wait, this has to be optional
         std::optional<T> _value;
     };
@@ -64,7 +59,7 @@ template <typename T> struct channel_core {
     channel_core(cid_t id)
         : _rnd_gen(_rnd_dev()), _rnd_dist(0.f, 1.f), _id(id) {}
 
-    void print_stuff() { spdlog::warn("CORE IS VALID ID {}", _id); }
+    void print_stuff() {}
 
     // TODO: add move
     void push(const T &value) {
@@ -85,7 +80,7 @@ template <typename T> struct channel_core {
         const auto observers_value_pass_notification = [&]() {
             // Needs to be locked
             for (auto i = _observables.begin(); i != _observables.end(); i++) {
-                if (i->func(value_state::NOTIFY, _id, std::any(value))) {
+                if (i->func(value_state::NOTIFY, _id, &value)) {
                     return true;
                 }
             }
@@ -94,32 +89,23 @@ template <typename T> struct channel_core {
 
         if (!_observables.empty() && is_waiting_empty_f()) {
             if (!observers_value_pass_notification()) {
-                std::lock_guard lck(_queue_m);
-                _queue.push(value);
+                {
+                    std::lock_guard lck(_queue_m);
+                    _queue.push(std::move(value));
+                }
+
                 notify_observers(value_state::READY);
             }
-            return;
         } else if (!_observables.empty() && !is_waiting_empty_f()) {
             if (_rnd_dist(_rnd_gen) > 0.5) {
                 if (!observers_value_pass_notification()) {
                     goto consume_value_waiting;
                 }
             } else {
-            consume_value_waiting:
-                waiting_values first;
-                {
-                    std::lock_guard lck(_waiting_m);
-                    first = _waiting.front();
-                    _waiting.pop_front();
-                }
-
-                first.awaitable->_value = value;
-
-                internal::runtime::inst().submit_resume(first.handle);
+                goto consume_value_waiting;
             }
-
-            return;
         } else if (!is_waiting_empty_f()) {
+        consume_value_waiting:
             waiting_values first;
 
             {
@@ -129,20 +115,25 @@ template <typename T> struct channel_core {
             }
 
             bool set = false;
+
+            // This feels hacky, not *proper*
+            // this hacky approach has to be done everywhere
+            // where we propagate data in order to perserve
+            // order and it will slow us down
             {
                 std::lock_guard lck(_queue_m);
 
                 if (!_queue.empty()) {
-                    T temp = _queue.front();
+                    T temp = std::move(_queue.front());
                     _queue.pop();
-                    _queue.push(value);
-                    first.awaitable->_value = temp;
+                    _queue.push(std::move(value));
+                    first.awaitable->_value = std::move(temp);
                     set = true;
                 }
             }
 
             if (!set) {
-                first.awaitable->_value = value;
+                first.awaitable->_value = std::move(value);
             }
 
             internal::runtime::inst().submit_resume(first.handle);
@@ -162,12 +153,28 @@ template <typename T> struct channel_core {
 
         _queue.pop();
 
-        // Todo: can this be optimized
+        return value;
+    }
+
+    std::pair<std::optional<T>, bool> try_fetch_select() {
+        std::lock_guard lck(_queue_m);
+
+        bool is_consumed = false;
+
         if (_queue.empty()) {
-            notify_observers(value_state::CONSUMED);
+            return {std::nullopt, is_consumed};
         }
 
-        return value;
+        auto value = _queue.front();
+
+        _queue.pop();
+
+        // Todo: can this be optimized
+        if (_queue.empty()) {
+            is_consumed = true;
+        }
+
+        return {value, is_consumed};
     }
 
     void add_waiting(std::coroutine_handle<> h, chan_awaitable *awaitable) {
@@ -175,13 +182,14 @@ template <typename T> struct channel_core {
         _waiting.emplace_back(h, awaitable);
     }
 
-    void add_obeservable(cid_t observer_id, value_state_func func) {
-        // lock
-        if (!_queue.empty()) {
-            func(value_state::READY, _id, std::nullopt);
-        }
-
+    value_state add_obeservable(cid_t observer_id, value_state_func func) {
+        // think about locking here
         _observables.emplace_back(func);
+
+        {
+            std::lock_guard lck(_queue_m);
+            return _queue.empty() ? value_state::CONSUMED : value_state::READY;
+        }
     }
 
     void remove_observable(cid_t id) {}
@@ -194,10 +202,9 @@ template <typename T> struct channel_core {
         });
     }
 
-    void notify_observers(value_state state,
-                          std::optional<std::any> value = std::nullopt) {
-        std::ranges::for_each(
-            _observables, [&](auto &block) { block.func(state, _id, value); });
+    void notify_observers(value_state state, void *o = nullptr) {
+        std::ranges::for_each(_observables,
+                              [&](auto &block) { block.func(state, _id, o); });
     }
 
     cid_t id() { return _id; }
@@ -220,11 +227,16 @@ template <typename T> struct channel_core {
 };
 
 struct channel_base {
-    virtual std::optional<std::any> try_fetch() = 0;
+  protected:
+    template <typename... Args> friend struct select_core;
 
+    virtual std::pair<std::optional<std::any>, bool> try_fetch_select() = 0;
+
+    // this will be the pointer
     virtual cid_t id() = 0;
 
-    virtual void add_obeservable(cid_t id, value_state_func &&func) = 0;
+    // if true represents this channel has available value to take
+    virtual value_state add_obeservable(cid_t id, value_state_func &&func) = 0;
     virtual void remove_observable(cid_t id) {};
 
     static inline std::atomic<cid_t> _s_id_counter{1};
@@ -236,33 +248,33 @@ template <typename T> struct channel : public internal::channel_base {
     using value_type = T;
 
     channel() : _core(_s_id_counter.fetch_add(1)) {}
-    ~channel() {
-        // TODO: unblock all, maybe?
-    }
+    ~channel() {}
 
     void push(const T &value) { _core.push(value); }
 
+    // debug
     void print_stuff() { _core.print_stuff(); }
     // fetch await
     internal::channel_core<T>::chan_awaitable fetch() { return _core.fetch(); }
 
-    std::optional<std::any> try_fetch() final {
-        auto v = _core.try_fetch();
-
-        if (v == std::nullopt) {
-            return std::nullopt;
-        }
-
-        return v.value();
-    }
-
-    cid_t id() { return _core.id(); }
+    std::optional<T> try_fetch() { return _core.try_fetch(); }
 
   private:
-    std::optional<std::any> try_fetch_non_notify(cid_t non_notify_id) {}
+    cid_t id() final { return _core.id(); }
 
-    void add_obeservable(cid_t id, internal::value_state_func &&func) final {
-        _core.add_obeservable(id, func);
+    std::pair<std::optional<std::any>, bool> try_fetch_select() final {
+        auto [v, consumed] = _core.try_fetch_select();
+
+        if (v == std::nullopt) {
+            return {std::nullopt, consumed};
+        }
+
+        return {std::move(v.value()), consumed};
+    }
+
+    internal::value_state
+    add_obeservable(cid_t id, internal::value_state_func &&func) final {
+        return _core.add_obeservable(id, std::move(func));
     }
 
   private:

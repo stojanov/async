@@ -12,14 +12,26 @@
 
 namespace async {
 template <typename T> struct task_handle;
-}
+
+namespace runtime {
+struct init_config {
+    std::size_t thread_count;
+};
+}; // namespace runtime
+
+} // namespace async
 
 namespace async::internal {
 
 class runtime {
   public:
-    runtime();
+    runtime(std::size_t thread_count);
+    ~runtime();
+
     static runtime &inst();
+
+    static void init(const async::runtime::init_config &config);
+    static runtime &public_inst();
 
     // Submit a pure task into the thread pool
     void submit_func(void_func &&task, int prio = 1);
@@ -66,13 +78,12 @@ class runtime {
     void notify_result(cid_t id, void *o) {
         std::lock_guard lck(_task_handlesM);
 
-        spdlog::warn("NOTIFY ID {}", id);
         if (auto i = _task_handles.find(id); i != std::end(_task_handles)) {
             i->second->on_result(o);
             _task_handles.erase(i);
         }
 
-        // remove coro here
+        _core.clean_coro(id);
     }
 
     void shutdown();
@@ -84,16 +95,15 @@ class runtime {
 
     std::mutex _task_handlesM;
     std::map<cid_t, s_ptr<task_handle_base>> _task_handles;
+    static std::unique_ptr<async::internal::runtime> s_runtime;
 };
-
-static inline auto &get() { return runtime::inst(); }
 
 } // namespace async::internal
 
 namespace async::runtime {
 // Conf init struct
-static inline void init() {
-
+static inline void init(const init_config &config) {
+    internal::runtime::init(config);
 };
 
 template <typename F>
@@ -103,17 +113,12 @@ template <typename F>
 static inline auto submit(F &&task, int prio = 1) {
     using ret_type = std::invoke_result_t<F>;
     using value_type = ret_type::value_type;
-    return internal::runtime::inst().submit_coro<value_type>(std::move(task));
+    return internal::runtime::public_inst().submit_coro<value_type>(
+        std::move(task));
 }
 
 static inline void submit_func(void_func &&task, int prio = 1) {
-    internal::runtime::inst().submit_func(std::move(task), 1);
+    internal::runtime::public_inst().submit_func(std::move(task), 1);
 }
-
-// template <typename T>
-// static inline void submit_closure(T &state, closure_task_func<T> &&func,
-//                                   int prio = 1) {
-//     internal::runtime::inst().submit_closure<T>(state, func);
-// }
 
 } // namespace async::runtime
